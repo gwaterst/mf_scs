@@ -160,7 +160,7 @@ static idxint validate(Data * d, Cone * k) {
 		scs_printf("m must be greater than or equal to n\n");
 		return -1;
 	}
-	if (validateLinSys(d) < 0) {
+	if ((d->Amul == NULL || d->ATmul == NULL) && validateLinSys(d) < 0) {
 		scs_printf("invalid linear system input data\n");
 		return -1;
 	}

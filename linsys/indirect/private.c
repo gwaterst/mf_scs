@@ -265,22 +265,32 @@ PyObject* vec_to_nparr(const pfloat *data, idxint* length) {
 
 void accumByAtrans(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 	// Create arrays for x, y.
-	// PyObject* x_array = vec_to_nparr(x, &(d->m));
-	// PyObject* y_array = vec_to_nparr(y, &(d->n));
-	// PyObject *arglist;
-	// arglist = Py_BuildValue("(OO)", x_array, y_array);
-	// PyObject_CallObject(d->ATmul, arglist);
-	// Py_DECREF(arglist);
-	AMatrix * A = d->A;
-	_accumByAtrans(d->n, A->x, A->i, A->p, x, y);
-}
-void accumByA(Data * d, Priv * p, const pfloat *x, pfloat *y) {
-	// Create arrays for x, y.
 	PyObject* x_array = vec_to_nparr(x, &(d->m));
 	PyObject* y_array = vec_to_nparr(y, &(d->n));
 	PyObject *arglist;
 	arglist = Py_BuildValue("(OO)", x_array, y_array);
+	PyObject_CallObject(d->ATmul, arglist);
+	Py_DECREF(arglist);
+	// AMatrix * A = d->A;
+	// _accumByAtrans(d->n, A->x, A->i, A->p, x, y);
+}
+void accumByA(Data * d, Priv * p, const pfloat *x, pfloat *y) {
+	// Create arrays for x, y.
+	// pfloat *z = malloc(sizeof(pfloat)*(d->m));
+	// memcpy(z, y, sizeof(pfloat)*(d->m));
+	PyObject* x_array = vec_to_nparr(x, &(d->n));
+	PyObject* y_array = vec_to_nparr(y, &(d->m));
+	PyObject *arglist;
+	arglist = Py_BuildValue("(OO)", x_array, y_array);
 	PyObject_CallObject(d->Amul, arglist);
 	Py_DECREF(arglist);
-	//_accumByAtrans(d->m, p->Atx, p->Ati, p->Atp, x, y);
+	// _accumByAtrans(d->m, p->Atx, p->Ati, p->Atp, x, y);
+	// for (int i=0; i < d->m; i++) {
+	// 	if (z[i] - y[i] > 0.0) {
+	// 		scs_printf("x vals %6f, %6f \n", x[0], x[1]);
+	// 		scs_printf("z val %6f, y val %6f \n", z[i], y[i]);
+	// 		scs_printf("difference %12f at %i\n", z[i] - y[i], i);
+	// 	}
+	// }
+	// free(z);
 }
