@@ -164,6 +164,23 @@ static int getOptFloatParam(char * key, pfloat * v, pfloat defVal, PyObject * op
 	return 0;
 }
 
+// Gets a python function.
+static int getOptFuncParam(char * key, PyObject ** v, PyObject * defVal, PyObject * opts) {
+	*v = defVal;
+	if (opts) {
+		PyObject *obj = PyDict_GetItemString(opts, key);
+		// TODO why doesn't this work?
+		// if (!PyCallable_Check(obj)) {
+	 //        PyErr_SetString(PyExc_TypeError, "parameter must be callable");
+	 //        return -1;
+	 //    }
+	    Py_XINCREF(obj);         /* Add a reference to new callback */
+	    *v = obj;       /* Remember new callback */
+	}
+	// TODO free the functions later.
+	return 0;
+}
+
 static int parseOpts(Data *d, PyObject * opts) {
 	if (getOptIntParam("MAX_ITERS", &(d->MAX_ITERS), 2500, opts) < 0)
 		return -1;
@@ -180,6 +197,11 @@ static int parseOpts(Data *d, PyObject * opts) {
 	if (getOptFloatParam("ALPHA", &(d->ALPHA), 1.8, opts) < 0)
 		return -1;
 	if (getOptFloatParam("RHO_X", &(d->RHO_X), 1e-3, opts) < 0)
+		return -1;
+	// Amul and ATmul
+	if (getOptFuncParam("Amul", &(d->Amul), NULL, opts) < 0)
+		return -1;
+	if (getOptFuncParam("ATmul", &(d->ATmul), NULL, opts) < 0)
 		return -1;
 	return 0;
 }
@@ -413,8 +435,10 @@ static PyObject *csolve(PyObject* self, PyObject *args, PyObject *kwargs) {
 	return returnDict;
 }
 
-static PyMethodDef scsMethods[] = { { "csolve", (PyCFunction) csolve, METH_VARARGS | METH_KEYWORDS,
-		"Solve a convex cone problem using scs." }, { NULL, NULL, 0, NULL } /* sentinel */
+static PyMethodDef scsMethods[] = {
+	{ "csolve", (PyCFunction) csolve, METH_VARARGS | METH_KEYWORDS,
+		"Solve a convex cone problem using scs." },
+    { NULL, NULL, 0, NULL } /* sentinel */
 };
 
 /* Module initialization */

@@ -1,3 +1,5 @@
+#include <Python.h>
+#include "numpy/arrayobject.h"
 #include "private.h"
 #include "../common.h"
 #include "linAlg.h"
@@ -142,6 +144,7 @@ void freePriv(Priv * p) {
 }
 
 void solveLinSys(Data *d, Priv * p, pfloat * b, const pfloat * s, idxint iter) {
+	import_array();
 	idxint cgIts;
 	pfloat cgTol = calcNorm(b, d->n) * (iter < 0 ? CG_BEST_TOL : 1 / POWF(iter + 1, d->CG_RATE));
 
@@ -253,10 +256,31 @@ void _accumByAtrans(idxint n, pfloat * Ax, idxint * Ai, idxint * Ap, const pfloa
 	}
 }
 
+// Vector to numpy array.
+PyObject* vec_to_nparr(const pfloat *data, idxint* length) {
+	return PyArray_SimpleNewFromData(1, length,
+							  		NPY_FLOAT64,
+							  		(void *)data);
+}
+
 void accumByAtrans(Data * d, Priv * p, const pfloat *x, pfloat *y) {
+	// Create arrays for x, y.
+	// PyObject* x_array = vec_to_nparr(x, &(d->m));
+	// PyObject* y_array = vec_to_nparr(y, &(d->n));
+	// PyObject *arglist;
+	// arglist = Py_BuildValue("(OO)", x_array, y_array);
+	// PyObject_CallObject(d->ATmul, arglist);
+	// Py_DECREF(arglist);
 	AMatrix * A = d->A;
 	_accumByAtrans(d->n, A->x, A->i, A->p, x, y);
 }
 void accumByA(Data * d, Priv * p, const pfloat *x, pfloat *y) {
-	_accumByAtrans(d->m, p->Atx, p->Ati, p->Atp, x, y);
+	// Create arrays for x, y.
+	PyObject* x_array = vec_to_nparr(x, &(d->m));
+	PyObject* y_array = vec_to_nparr(y, &(d->n));
+	PyObject *arglist;
+	arglist = Py_BuildValue("(OO)", x_array, y_array);
+	PyObject_CallObject(d->Amul, arglist);
+	Py_DECREF(arglist);
+	//_accumByAtrans(d->m, p->Atx, p->Ati, p->Atp, x, y);
 }
