@@ -10,12 +10,12 @@
 #define MAX_SCALE 1e3
 
 idxint validateLinSys(Data *d) {
-	AMatrix * A = d->A;
-	idxint i, rMax, Anz;
-	if (!A->x || !A->i || !A->p) {
-		scs_printf("data incompletely specified\n");
-		return -1;
-	}
+	// AMatrix * A = d->A;
+	// idxint i, rMax, Anz;
+	// if (!A->x || !A->i || !A->p) {
+	// 	scs_printf("data incompletely specified\n");
+	// 	return -1;
+	// }
     /* detects degenerate problems, sometimes not wanted:
 	for (i = 0; i < d->n; ++i) {
 		if (A->p[i] >= A->p[i + 1]) {
@@ -24,20 +24,20 @@ idxint validateLinSys(Data *d) {
 		}
 	}
     */
-	Anz = A->p[d->n];
-	if (((pfloat) Anz / d->m > d->n) || (Anz <= 0)) {
-		scs_printf("Anz (nonzeros in A) = %i, outside of valid range\n", (int) Anz);
-		return -1;
-	}
-	rMax = 0;
-	for (i = 0; i < Anz; ++i) {
-		if (A->i[i] > rMax)
-			rMax = A->i[i];
-	}
-	if (rMax > d->m - 1) {
-		scs_printf("number of rows in A inconsistent with input dimension\n");
-		return -1;
-	}
+	// Anz = A->p[d->n];
+	// if (((pfloat) Anz / d->m > d->n) || (Anz <= 0)) {
+	// 	scs_printf("Anz (nonzeros in A) = %i, outside of valid range\n", (int) Anz);
+	// 	return -1;
+	// }
+	// rMax = 0;
+	// for (i = 0; i < Anz; ++i) {
+	// 	if (A->i[i] > rMax)
+	// 		rMax = A->i[i];
+	// }
+	// if (rMax > d->m - 1) {
+	// 	scs_printf("number of rows in A inconsistent with input dimension\n");
+	// 	return -1;
+	// }
 	return 0;
 }
 

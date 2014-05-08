@@ -16,6 +16,13 @@ static idxint totCgIts;
 static timer linsysTimer;
 static pfloat totalSolveTime;
 
+// Vector to numpy array.
+PyObject* vec_to_nparr(const pfloat *data, idxint* length) {
+	return PyArray_SimpleNewFromData(1, length,
+							  		NPY_FLOAT64,
+							  		(void *)data);
+}
+
 char * getLinSysMethod(Data * d, Priv * p) {
 	char * str = scs_malloc(sizeof(char) * 128);
 	sprintf(str, "sparse-indirect, nnz in A = %li, CG tol ~ 1/iter^(%2.2f)", (long ) d->A->p[d->n], d->CG_RATE);
@@ -33,18 +40,39 @@ char * getLinSysSummary(Priv * p, Info * info) {
 
 /* M = inv ( diag ( RHO_X * I + A'A ) ) */
 void getPreconditioner(Data *d, Priv *p) {
+	import_array();
 	idxint i;
 	pfloat * M = p->M;
-	AMatrix * A = d->A;
+	// AMatrix * A = d->A;
+
+	pfloat * x = malloc(sizeof(pfloat)*(d->n));
+	pfloat * y = malloc(sizeof(pfloat)*(d->m));
+	PyObject * x_array = vec_to_nparr(x, &(d->n));
+	PyObject * y_array = vec_to_nparr(y, &(d->m));
+	PyObject *arglist;
+	arglist = Py_BuildValue("(OO)", x_array, y_array);
 
 #ifdef EXTRAVERBOSE
 	scs_printf("getting pre-conditioner\n");
 #endif
 
 	for (i = 0; i < d->n; ++i) {
-		M[i] = 1 / (d->RHO_X + calcNormSq(&(A->x[A->p[i]]), A->p[i + 1] - A->p[i]));
+		x[i] = 1.0;
+		PyObject_CallObject(d->Amul, arglist);
+		M[i] = 1 / (d->RHO_X + calcNormSq(y, d->m));
+		// pfloat test = 1 / (d->RHO_X + calcNormSq(&(A->x[A->p[i]]), A->p[i + 1] - A->p[i]));
+		// if (M[i] - test > 0.0) {
+		// 	scs_printf("difference %12f \n", M[i]-test);
+		// }
 		/* M[i] = 1; */
+		// zero out x and y.
+		scaleArray(x, 0.0, d->n);
+		scaleArray(y, 0.0, d->m);
 	}
+	// Clean up x, y, etc.
+	Py_DECREF(arglist);
+	free(x);
+	free(y);
 
 #ifdef EXTRAVERBOSE
 	scs_printf("finished getting pre-conditioner\n");
@@ -144,7 +172,6 @@ void freePriv(Priv * p) {
 }
 
 void solveLinSys(Data *d, Priv * p, pfloat * b, const pfloat * s, idxint iter) {
-	import_array();
 	idxint cgIts;
 	pfloat cgTol = calcNorm(b, d->n) * (iter < 0 ? CG_BEST_TOL : 1 / POWF(iter + 1, d->CG_RATE));
 
@@ -256,15 +283,10 @@ void _accumByAtrans(idxint n, pfloat * Ax, idxint * Ai, idxint * Ap, const pfloa
 	}
 }
 
-// Vector to numpy array.
-PyObject* vec_to_nparr(const pfloat *data, idxint* length) {
-	return PyArray_SimpleNewFromData(1, length,
-							  		NPY_FLOAT64,
-							  		(void *)data);
-}
-
 void accumByAtrans(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 	// Create arrays for x, y.
+	// pfloat *z = malloc(sizeof(pfloat)*(d->n));
+	// memcpy(z, y, sizeof(pfloat)*(d->n));
 	PyObject* x_array = vec_to_nparr(x, &(d->m));
 	PyObject* y_array = vec_to_nparr(y, &(d->n));
 	PyObject *arglist;
@@ -273,6 +295,14 @@ void accumByAtrans(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 	Py_DECREF(arglist);
 	// AMatrix * A = d->A;
 	// _accumByAtrans(d->n, A->x, A->i, A->p, x, y);
+	// for (int i=0; i < d->n; i++) {
+	// 	if (z[i] - y[i] > 0.0) {
+	// 		scs_printf("x vals %6f, %6f \n", x[0], x[1]);
+	// 		scs_printf("z val %6f, y val %6f \n", z[i], y[i]);
+	// 		scs_printf("difference %12f at %i\n", z[i] - y[i], i);
+	// 	}
+	// }
+	// free(z);
 }
 void accumByA(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 	// Create arrays for x, y.
@@ -286,8 +316,8 @@ void accumByA(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 	Py_DECREF(arglist);
 	// _accumByAtrans(d->m, p->Atx, p->Ati, p->Atp, x, y);
 	// for (int i=0; i < d->m; i++) {
-	// 	if (z[i] - y[i] > 0.0) {
-	// 		scs_printf("x vals %6f, %6f \n", x[0], x[1]);
+	// 	if (fabs(z[i] - y[i]) > 0.00001) {
+	// 		scs_printf("x vals %6f, %6f, %6f, %6f \n", x[0], x[1], x[2], x[3]);
 	// 		scs_printf("z val %6f, y val %6f \n", z[i], y[i]);
 	// 		scs_printf("difference %12f at %i\n", z[i] - y[i], i);
 	// 	}
