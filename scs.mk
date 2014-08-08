@@ -4,12 +4,14 @@ CC = gcc
 ifeq ($(UNAME), Linux)
 # we're on a linux system, use accurate timer provided by clock_gettime()
 LDFLAGS = -lm -lrt
+SHARED = so
 else
 # we're on apple, no need to link rt library
-LDFLAGS = -lm 
+LDFLAGS = -lm
+SHARED = dylib
 endif
 
-CFLAGS = -g -Wall -pedantic -O3 -funroll-loops -Wstrict-prototypes -Iinclude
+CFLAGS = -g -Wall -pedantic -O3 -funroll-loops -Wstrict-prototypes -fPIC -I. -Iinclude #-Wextra
 
 LINSYS = linsys
 DIRSRC = $(LINSYS)/direct
@@ -27,6 +29,7 @@ RANLIB = ranlib
 # CFLAGS += -DFLOAT # use floats rather than doubles
 # CFLAGS += -DNOVALIDATE # remove data validation step
 # CFLAGS += -DEXTRAVERBOSE # extra verbosity level
+# CFLAGS += -DNOBLASUNDERSCORE # if your blas install does not use underscores in function names 
 
 ############ OPENMP: ############
 # set USE_OPENMP = 1 to allow openmp (multi-threaded matrix multiplies):
@@ -49,7 +52,7 @@ USE_LAPACK = 0
 
 ifneq ($(USE_LAPACK), 0)
   # edit these for your setup:
-  LDFLAGS += -lblas -llapack -lgfortran
+  LDFLAGS += -lblas -llapack #-lgfortran
   CFLAGS += -DLAPACK_LIB_FOUND
-# CFLAGS += -DBLAS64 # if blas/lapack lib uses long rather than int
+  # CFLAGS += -DBLAS64 # if blas/lapack lib uses long rather than int
 endif

@@ -1,9 +1,12 @@
-scs [![Build Status](https://travis-ci.org/cvxgrp/scs.png?branch=master)](https://travis-ci.org/cvxgrp/scs) 
+SCS
 ====
 
-scs = `splitting cone solver`
+[![Build Status](https://travis-ci.org/cvxgrp/scs.svg?branch=master)](https://travis-ci.org/cvxgrp/scs)
+[![Build status](https://ci.appveyor.com/api/projects/status/4542u6kom5293qpm)](https://ci.appveyor.com/project/bodono/scs)
 
-scs is a C package for solving large-scale convex cone problems,
+SCS = `splitting cone solver`
+
+SCS is a C package for solving large-scale convex cone problems,
 based on ["Operator Splitting for Conic Optimization via Homogeneous Self-Dual Embedding"](http://www.stanford.edu/~boyd/papers/scs.html) by 
 Brendan O’Donoghue, Eric Chu, Neal Parikh, and Stephen Boyd
 
@@ -182,7 +185,7 @@ The five relevant data structures are:
     	pfloat ALPHA;       /* relaxation parameter: 1.8 */
     	pfloat RHO_X;       /* x equality constraint scaling: 1e-3 */
     	pfloat SCALE;       /* if normalized, rescales by this factor: 1 */
-        pfloat CG_RATE;     /* for indirect, tolerance goes down like (1/iter)^CG_RATE: 1.5 */
+        pfloat CG_RATE;     /* for indirect, tolerance goes down like (1/iter)^CG_RATE: 2 */
         idxint VERBOSE;     /* boolean, write out progress: 1 */
     	idxint NORMALIZE;   /* boolean, heuristic data rescaling: 1 */
     	idxint WARM_START;  /* boolean, warm start with guess in Sol struct: 0 */
@@ -238,7 +241,7 @@ Solving SDPs
 ---------- 
 In order to solve SDPs you must have BLAS and LAPACK installed.
 Point `scs.mk` to the location of these libraries. Without
-these you can still solve SOCPs, LPs, and EXPs.
+these you can still solve SOCPs, LPs, and ECPs.
 
 Scalability
 ----------- 

@@ -1,16 +1,10 @@
 #include <Python.h>
 #include "numpy/arrayobject.h"
 #include "private.h"
-#include "../common.h"
-#include "linAlg.h"
 
-#define CG_BEST_TOL 1e-7
+#define CG_BEST_TOL 1e-9
+#define CG_MIN_TOL 1e-1
 #define PRINT_INTERVAL 100
-
-/*y = (RHO_X * I + A'A)x */
-static void matVec(Data * d, Priv * p, const pfloat * x, pfloat * y);
-static idxint pcg(Data *d, Priv * p, const pfloat *s, pfloat * b, idxint max_its, pfloat tol);
-static void transpose(Data * d, Priv * p);
 
 static idxint totCgIts;
 static timer linsysTimer;
@@ -80,32 +74,6 @@ void getPreconditioner(Data *d, Priv *p) {
 
 }
 
-Priv * initPriv(Data * d) {
-	AMatrix * A = d->A;
-	Priv * p = scs_calloc(1, sizeof(Priv));
-	p->p = scs_malloc((d->n) * sizeof(pfloat));
-	p->r = scs_malloc((d->n) * sizeof(pfloat));
-	p->Ap = scs_malloc((d->n) * sizeof(pfloat));
-	p->tmp = scs_malloc((d->m) * sizeof(pfloat));
-
-	/* preconditioner memory */
-	p->z = scs_malloc((d->n) * sizeof(pfloat));
-	p->M = scs_malloc((d->n) * sizeof(pfloat));
-
-	p->Ati = scs_malloc((A->p[d->n]) * sizeof(idxint));
-	p->Atp = scs_malloc((d->m + 1) * sizeof(idxint));
-	p->Atx = scs_malloc((A->p[d->n]) * sizeof(pfloat));
-	transpose(d, p);
-	getPreconditioner(d, p);
-	totalSolveTime = 0;
-	totCgIts = 0;
-	if (!p->p || !p->r || !p->Ap || !p->tmp || !p->Ati || !p->Atp || !p->Atx) {
-		freePriv(p);
-		return NULL;
-	}
-	return p;
-}
-
 static void transpose(Data * d, Priv * p) {
 	idxint * Ci = p->Ati;
 	idxint * Cp = p->Atp;
@@ -142,7 +110,7 @@ static void transpose(Data * d, Priv * p) {
 	scs_free(z);
 
 #ifdef EXTRAVERBOSE
-	scs_printf("finished transposing A, time: %6f s\n", tocq(&transposeTimer) / 1e3);
+	scs_printf("finished transposing A, time: %1.2es\n", tocq(&transposeTimer) / 1e3);
 #endif
 
 }
@@ -153,8 +121,8 @@ void freePriv(Priv * p) {
 			scs_free(p->p);
 		if (p->r)
 			scs_free(p->r);
-		if (p->Ap)
-			scs_free(p->Ap);
+		if (p->Gp)
+			scs_free(p->Gp);
 		if (p->tmp)
 			scs_free(p->tmp);
 		if (p->Ati)
@@ -171,86 +139,7 @@ void freePriv(Priv * p) {
 	}
 }
 
-void solveLinSys(Data *d, Priv * p, pfloat * b, const pfloat * s, idxint iter) {
-	idxint cgIts;
-	pfloat cgTol = calcNorm(b, d->n) * (iter < 0 ? CG_BEST_TOL : 1 / POWF(iter + 1, d->CG_RATE));
-
-#ifdef EXTRAVERBOSE
-	scs_printf("solving lin sys\n");
-#endif
-
-	cgTol = MAX(cgTol, CG_BEST_TOL);
-	tic(&linsysTimer);
-	/* solves Mx = b, for x but stores result in b */
-	/* s contains warm-start (if available) */
-	accumByAtrans(d, p, &(b[d->n]), b);
-	/* solves (I+A'A)x = b, s warm start, solution stored in b */
-	cgIts = pcg(d, p, s, b, d->n, cgTol);
-	scaleArray(&(b[d->n]), -1, d->m);
-	accumByA(d, p, b, &(b[d->n]));
-
-#ifdef EXTRAVERBOSE
-	scs_printf("\tCG iterations: %i\n", (int) cgIts);
-#endif
-	if (iter >= 0) {
-		totCgIts += cgIts;
-	}
-
-	totalSolveTime += tocq(&linsysTimer);
-}
-
-static void applyPreConditioner(pfloat * M, pfloat * z, pfloat * r, idxint n, pfloat *ipzr) {
-	idxint i;
-	*ipzr = 0;
-	for (i = 0; i < n; ++i) {
-		z[i] = r[i] * M[i];
-		*ipzr += z[i] * r[i];
-	}
-}
-
-static idxint pcg(Data *d, Priv * pr, const pfloat * s, pfloat * b, idxint max_its, pfloat tol) {
-	/* solves (I+A'A)x = b */
-	/* warm start cg with s */
-	idxint i, n = d->n;
-	pfloat ipzr, ipzrOld, alpha;
-	pfloat *p = pr->p; /* cg direction */
-	pfloat *Ap = pr->Ap; /* updated CG direction */
-	pfloat *r = pr->r; /* cg residual */
-	pfloat *z = pr->z; /* for preconditioning */
-	pfloat *M = pr->M; /* inverse diagonal preconditioner */
-
-	if (s == NULL) {
-		memcpy(r, b, n * sizeof(pfloat));
-		memset(b, 0.0, n * sizeof(pfloat));
-	} else {
-		matVec(d, pr, s, r);
-		addScaledArray(r, b, n, -1);
-		scaleArray(r, -1, n);
-		memcpy(b, s, n * sizeof(pfloat));
-	}
-	applyPreConditioner(M, z, r, n, &ipzr);
-	memcpy(p, z, n * sizeof(pfloat));
-
-	for (i = 0; i < max_its; ++i) {
-		matVec(d, pr, p, Ap);
-
-		alpha = ipzr / innerProd(p, Ap, n);
-		addScaledArray(b, p, n, alpha);
-		addScaledArray(r, Ap, n, -alpha);
-
-		if (calcNorm(r, n) < tol) {
-			/*scs_printf("tol: %.4e, resid: %.4e, iters: %i\n", tol, rsnew, i+1); */
-			return i + 1;
-		}
-		ipzrOld = ipzr;
-		applyPreConditioner(M, z, r, n, &ipzr);
-
-		scaleArray(p, ipzr / ipzrOld, n);
-		addScaledArray(p, z, n, 1);
-	}
-	return i;
-}
-
+/* solves (I+A'A)x = b, s warm start, solution stored in b */
 /*y = (RHO_X * I + A'A)x */
 static void matVec(Data * d, Priv * p, const pfloat * x, pfloat * y) {
 	pfloat * tmp = p->tmp;
@@ -284,43 +173,111 @@ void _accumByAtrans(idxint n, pfloat * Ax, idxint * Ai, idxint * Ap, const pfloa
 }
 
 void accumByAtrans(Data * d, Priv * p, const pfloat *x, pfloat *y) {
-	// Create arrays for x, y.
-	// pfloat *z = malloc(sizeof(pfloat)*(d->n));
-	// memcpy(z, y, sizeof(pfloat)*(d->n));
-	PyObject* x_array = vec_to_nparr(x, &(d->m));
-	PyObject* y_array = vec_to_nparr(y, &(d->n));
-	PyObject *arglist;
-	arglist = Py_BuildValue("(OO)", x_array, y_array);
-	PyObject_CallObject(d->ATmul, arglist);
-	Py_DECREF(arglist);
-	// AMatrix * A = d->A;
-	// _accumByAtrans(d->n, A->x, A->i, A->p, x, y);
-	// for (int i=0; i < d->n; i++) {
-	// 	if (z[i] - y[i] > 0.0) {
-	// 		scs_printf("x vals %6f, %6f \n", x[0], x[1]);
-	// 		scs_printf("z val %6f, y val %6f \n", z[i], y[i]);
-	// 		scs_printf("difference %12f at %i\n", z[i] - y[i], i);
-	// 	}
-	// }
-	// free(z);
+	AMatrix * A = d->A;
+	_accumByAtrans(d->n, A->x, A->i, A->p, x, y);
 }
 void accumByA(Data * d, Priv * p, const pfloat *x, pfloat *y) {
-	// Create arrays for x, y.
-	// pfloat *z = malloc(sizeof(pfloat)*(d->m));
-	// memcpy(z, y, sizeof(pfloat)*(d->m));
-	PyObject* x_array = vec_to_nparr(x, &(d->n));
-	PyObject* y_array = vec_to_nparr(y, &(d->m));
-	PyObject *arglist;
-	arglist = Py_BuildValue("(OO)", x_array, y_array);
-	PyObject_CallObject(d->Amul, arglist);
-	Py_DECREF(arglist);
-	// _accumByAtrans(d->m, p->Atx, p->Ati, p->Atp, x, y);
-	// for (int i=0; i < d->m; i++) {
-	// 	if (fabs(z[i] - y[i]) > 0.00001) {
-	// 		scs_printf("x vals %6f, %6f, %6f, %6f \n", x[0], x[1], x[2], x[3]);
-	// 		scs_printf("z val %6f, y val %6f \n", z[i], y[i]);
-	// 		scs_printf("difference %12f at %i\n", z[i] - y[i], i);
-	// 	}
-	// }
-	// free(z);
+	_accumByAtrans(d->m, p->Atx, p->Ati, p->Atp, x, y);
 }
+static void applyPreConditioner(pfloat * M, pfloat * z, pfloat * r, idxint n, pfloat *ipzr) {
+	idxint i;
+	*ipzr = 0;
+	for (i = 0; i < n; ++i) {
+		z[i] = r[i] * M[i];
+		*ipzr += z[i] * r[i];
+	}
+}
+
+Priv * initPriv(Data * d) {
+	AMatrix * A = d->A;
+	Priv * p = scs_calloc(1, sizeof(Priv));
+	p->p = scs_malloc((d->n) * sizeof(pfloat));
+	p->r = scs_malloc((d->n) * sizeof(pfloat));
+	p->Gp = scs_malloc((d->n) * sizeof(pfloat));
+	p->tmp = scs_malloc((d->m) * sizeof(pfloat));
+
+	/* preconditioner memory */
+	p->z = scs_malloc((d->n) * sizeof(pfloat));
+	p->M = scs_malloc((d->n) * sizeof(pfloat));
+
+	p->Ati = scs_malloc((A->p[d->n]) * sizeof(idxint));
+	p->Atp = scs_malloc((d->m + 1) * sizeof(idxint));
+	p->Atx = scs_malloc((A->p[d->n]) * sizeof(pfloat));
+	transpose(d, p);
+	getPreconditioner(d, p);
+	totalSolveTime = 0;
+	totCgIts = 0;
+	if (!p->p || !p->r || !p->Gp || !p->tmp || !p->Ati || !p->Atp || !p->Atx) {
+		freePriv(p);
+		return NULL;
+	}
+	return p;
+}
+
+static idxint pcg(Data *d, Priv * pr, const pfloat * s, pfloat * b, idxint max_its, pfloat tol) {
+	idxint i, n = d->n;
+	pfloat ipzr, ipzrOld, alpha;
+	pfloat *p = pr->p; /* cg direction */
+	pfloat *Gp = pr->Gp; /* updated CG direction */
+	pfloat *r = pr->r; /* cg residual */
+	pfloat *z = pr->z; /* for preconditioning */
+	pfloat *M = pr->M; /* inverse diagonal preconditioner */
+
+	if (s == NULL) {
+		memcpy(r, b, n * sizeof(pfloat));
+		memset(b, 0, n * sizeof(pfloat));
+	} else {
+		matVec(d, pr, s, r);
+		addScaledArray(r, b, n, -1);
+		scaleArray(r, -1, n);
+		memcpy(b, s, n * sizeof(pfloat));
+	}
+	applyPreConditioner(M, z, r, n, &ipzr);
+	memcpy(p, z, n * sizeof(pfloat));
+
+	for (i = 0; i < max_its; ++i) {
+		matVec(d, pr, p, Gp);
+
+		alpha = ipzr / innerProd(p, Gp, n);
+		addScaledArray(b, p, n, alpha);
+		addScaledArray(r, Gp, n, -alpha);
+
+		if (calcNorm(r, n) < tol) {
+            #ifdef EXTRAVERBOSE
+            scs_printf("tol: %.4e, resid: %.4e, iters: %li\n", tol, calcNorm(r, n), (long) i+1);
+            #endif
+			return i + 1;
+		}
+		ipzrOld = ipzr;
+		applyPreConditioner(M, z, r, n, &ipzr);
+
+		scaleArray(p, ipzr / ipzrOld, n);
+		addScaledArray(p, z, n, 1);
+	}
+	return i;
+}
+
+idxint solveLinSys(Data *d, Priv * p, pfloat * b, const pfloat * s, idxint iter) {
+	idxint cgIts;
+	pfloat cgTol = calcNorm(b, d->n) * (iter < 0 ? CG_BEST_TOL : CG_MIN_TOL / POWF((pfloat) iter + 1, d->CG_RATE));
+
+	tic(&linsysTimer);
+	/* solves Mx = b, for x but stores result in b */
+	/* s contains warm-start (if available) */
+	accumByAtrans(d, p, &(b[d->n]), b);
+	/* solves (I+A'A)x = b, s warm start, solution stored in b */
+	cgIts = pcg(d, p, s, b, d->n, MAX(cgTol, CG_BEST_TOL));
+	scaleArray(&(b[d->n]), -1, d->m);
+	accumByA(d, p, b, &(b[d->n]));
+
+	if (iter >= 0) {
+		totCgIts += cgIts;
+	}
+
+	totalSolveTime += tocq(&linsysTimer);
+#ifdef EXTRAVERBOSE
+	scs_printf("linsys solve time: %1.2es\n", tocq(&linsysTimer) / 1e3);
+#endif
+	return 0;
+}
+

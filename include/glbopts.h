@@ -24,6 +24,9 @@
 #define scs_calloc   calloc
 #endif
 
+/* SCS VERSION NUMBER --------------------------------------- */
+#define SCS_VERSION ("1.0.5")
+
 #ifdef DLONG
     #ifdef _WIN64
         typedef __int64 idxint;
@@ -62,10 +65,18 @@ typedef float pfloat;
 #endif
 
 #ifndef POWF
-#ifndef FLOAT
+#ifdef FLOAT
 #define POWF powf
 #else
 #define POWF pow
+#endif
+#endif
+
+#ifndef SQRTF
+#ifdef FLOAT
+#define SQRTF sqrtf
+#else
+#define SQRTF sqrt
 #endif
 #endif
 

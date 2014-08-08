@@ -2,7 +2,7 @@
 #define PUTILS_H_GUARD
 
 #include "scs.h"
-#include "../linsys/amatrix.h"
+#include "linsys/amatrix.h"
 
 #define PI 3.141592654
 #ifdef DLONG
@@ -87,7 +87,9 @@ void freeSol(Sol *sol) {
 			scs_free(sol->s);
 			sol->s = NULL;
 		}
+        scs_free(sol);
 	}
+    sol = NULL;
 }
 
 void genRandomProbData(idxint nnz, idxint col_nnz, Data * d, Cone * k, Sol * opt_sol) {
@@ -112,7 +114,7 @@ void genRandomProbData(idxint nnz, idxint col_nnz, Data * d, Cone * k, Sol * opt
 		y[i] = z[i] = rand_pfloat();
 	}
 
-	projDualCone(y, k, -1);
+	projDualCone(y, k, NULL, -1);
 
 	for (i = 0; i < m; i++) {
 		b[i] = s[i] = y[i] - z[i];

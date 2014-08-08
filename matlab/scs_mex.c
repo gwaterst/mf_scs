@@ -3,17 +3,16 @@
 #include "glbopts.h"
 #include "scs.h"
 #include "linAlg.h"
-#include "../linsys/amatrix.h"
+#include "linsys/amatrix.h"
 
 void freeMex(Data * d, Cone * k);
 
 idxint parseWarmStart(const mxArray * p_mex, pfloat ** p, idxint l) {
-	*p = scs_calloc(l, sizeof(pfloat));
+	*p = scs_calloc(l, sizeof(pfloat)); /* this allocates memory used for Sol */
 	if (p_mex == NULL) {
 		return 0;
 	} else if (mxIsSparse(p_mex) || (idxint) *mxGetDimensions(p_mex) != l) {
-		scs_printf(
-				"Error parsing warm start input (make sure vectors are not sparse and of correct size), running without full warm-start");
+		scs_printf("Error parsing warm start input (make sure vectors are not sparse and of correct size), running without full warm-start");
 		return 0;
 	} else {
 		memcpy(*p, mxGetPr(p_mex), l * sizeof(pfloat));
@@ -50,7 +49,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 	const mxArray *params;
 
 	const mwSize one[1] = { 1 };
-	const idxint numInfoFields = 9;
+	const int numInfoFields = 9;
 	const char * infoFields[] = { "iter", "status", "pobj", "dobj", "resPri", "resDual", "relGap", "setupTime",
 			"solveTime" };
 	mxArray *tmp;
@@ -141,7 +140,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
 	tmp = mxGetField(params, 0, "CG_RATE");
 	if (tmp == NULL)
-		d->CG_RATE = 1.5;
+		d->CG_RATE = 2;
 	else
 		d->CG_RATE = (pfloat) *mxGetPr(tmp);
 
@@ -159,37 +158,37 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
 	/* cones */
 	kf = mxGetField(cone, 0, "f");
-	if (kf)
+	if (kf && !mxIsEmpty(kf))
 		k->f = (idxint) *mxGetPr(kf);
 	else
 		k->f = 0;
 
 	kl = mxGetField(cone, 0, "l");
-	if (kl)
+	if (kl && !mxIsEmpty(kl))
 		k->l = (idxint) *mxGetPr(kl);
 	else
 		k->l = 0;
 
 	kep = mxGetField(cone, 0, "ep");
-	if (kep)
+	if (kep && !mxIsEmpty(kep))
 		k->ep = (idxint) *mxGetPr(kep);
 	else
 		k->ep = 0;
 
 	ked = mxGetField(cone, 0, "ed");
-	if (ked)
+	if (ked && !mxIsEmpty(ked))
 		k->ed = (idxint) *mxGetPr(ked);
 	else
 		k->ed = 0;
 
 	kq = mxGetField(cone, 0, "q");
-	if (kq) {
+	if (kq && !mxIsEmpty(kq)) {
 		q_mex = mxGetPr(kq);
-		ns = mxGetNumberOfDimensions(kq);
+		ns = (idxint) mxGetNumberOfDimensions(kq);
 		q_dims = mxGetDimensions(kq);
-		k->qsize = q_dims[0];
+		k->qsize = (idxint) q_dims[0];
 		if (ns > 1 && q_dims[0] == 1) {
-			k->qsize = q_dims[1];
+			k->qsize = (idxint) q_dims[1];
 		}
 		k->q = mxMalloc(sizeof(idxint) * k->qsize);
 		for (i = 0; i < k->qsize; i++) {
@@ -201,13 +200,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 	}
 
 	ks = mxGetField(cone, 0, "s");
-	if (ks) {
+	if (ks && !mxIsEmpty(ks)) {
 		s_mex = mxGetPr(ks);
-		ns = mxGetNumberOfDimensions(ks);
+		ns = (idxint) mxGetNumberOfDimensions(ks);
 		s_dims = mxGetDimensions(ks);
-		k->ssize = s_dims[0];
+		k->ssize = (idxint) s_dims[0];
 		if (ns > 1 && s_dims[0] == 1) {
-			k->ssize = s_dims[1];
+			k->ssize = (idxint) s_dims[1];
 		}
 		k->s = mxMalloc(sizeof(idxint) * k->ssize);
 		for (i = 0; i < k->ssize; i++) {
@@ -227,7 +226,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 	A->p = (idxint *) mxGetJc(A_mex);
 	A->i = (idxint *) mxGetIr(A_mex);
 	d->A = A;
-	/* warm-start inputs */
+	/* warm-start inputs, allocates sol->x, ->y, ->s even if warm start not used */
 	d->WARM_START = parseWarmStart((mxArray *) mxGetField(data, 0, "x"), &(sol.x), d->n);
 	d->WARM_START |= parseWarmStart((mxArray *) mxGetField(data, 0, "y"), &(sol.y), d->m);
 	d->WARM_START |= parseWarmStart((mxArray *) mxGetField(data, 0, "s"), &(sol.s), d->m);
@@ -255,7 +254,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
 	tmp = mxCreateDoubleMatrix(1, 1, mxREAL);
 	mxSetField(plhs[3], 0, "iter", tmp);
-	*mxGetPr(tmp) = info.iter;
+	*mxGetPr(tmp) = (pfloat) info.iter;
 
 	tmp = mxCreateDoubleMatrix(1, 1, mxREAL);
 	mxSetField(plhs[3], 0, "pobj", tmp);
