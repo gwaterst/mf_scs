@@ -53,8 +53,7 @@ USE_LAPACK = 0
 ifeq ($(CONDA_BUILD), 1)
  CFLAGS += -I$(PREFIX)/include
  LDFLAGS += -L$(PREFIX)/lib -lgfortran
- LDFLAGS += -lblas -llapack -lgfortran
- CFLAGS += -DLAPACK_LIB_FOUND
+ USE_LAPACK = 1
 endif
 
 ifneq ($(USE_LAPACK), 0)
