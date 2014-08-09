@@ -3,10 +3,7 @@ package:
   version: 1.0.2
 
 source:
-  fn: scs-1.0.2.zip [not win]
-  url: https://github.com/cvxgrp/scs/archive/1.0.2.zip
-  patches:
-    - scs.mk.patch
+  git_url: https://github.com/cvxgrp/scs
 
 build:
   number: 0

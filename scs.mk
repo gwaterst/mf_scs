@@ -13,6 +13,11 @@ endif
 
 CFLAGS = -g -Wall -pedantic -O3 -funroll-loops -Wstrict-prototypes -fPIC -I. -Iinclude #-Wextra
 
+ifeq ($(CONDA_BUILD), 1)
+ CFLAGS += -I$(PREFIX)/include
+ LDFLAGS += -L$(PREFIX)/lib -lgfortran
+endif
+
 LINSYS = linsys
 DIRSRC = $(LINSYS)/direct
 DIRSRCEXT = $(DIRSRC)/external
