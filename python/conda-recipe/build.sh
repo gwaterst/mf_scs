@@ -1,2 +1,2 @@
 cd $SRC_DIR/python
-$PYTHON setup.py install
+python setup.py install
