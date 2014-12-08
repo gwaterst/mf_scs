@@ -51,6 +51,7 @@ def solve(probdata, cone, **opts):
         new_opts[key.upper()] = opts[key]
     opts = new_opts
     if opts.get("use_indirect", False):
+        print "hello"
         # HACK transfer from probdata to opts.
         for key in ["Amul", "ATmul"]:
             if key in probdata:
