@@ -3,7 +3,7 @@ from distutils.core import setup, Extension
 from glob import glob
 from platform import system
 from numpy import get_include
-from numpy.distutils.system_info import get_info, BlasNotFoundError 
+from numpy.distutils.system_info import get_info, BlasNotFoundError
 
 # if you're having errors linking blas/lapack, set this to false:
 USE_LAPACK = True
@@ -59,7 +59,7 @@ _scs_indirect = Extension(
                     extra_compile_args=extra_compile_args
                      )
 setup(name='scs',
-        version='1.0.1',
+        version='10.0.0',
         author = 'Brendan O\'Donoghue',
         author_email = 'bodonoghue85@gmail.com',
         url = 'http://github.com/cvxgrp/scs',

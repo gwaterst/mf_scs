@@ -36,5 +36,7 @@ char * getLinSysSummary(Priv * p, Info * info);
 void normalizeA(Data * d, Work * w, Cone * k);
 /* unnormalizes A matrix, unnormalizes by w->D and w->E and d->SCALE */
 void unNormalizeA(Data *d, Work * w);
+/* Computes D and E in a matrix free way. */
+void getPrecond(Data * d, Work * w, Cone * k);
 
 #endif

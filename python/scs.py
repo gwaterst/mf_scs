@@ -5,10 +5,10 @@ from warnings import warn
 from scipy import sparse
 
 
-def solve(probdata, cone, opts={}, USE_INDIRECT=False):
+def solve(probdata, cone, **opts):
     """
     solves convex cone problems
-     
+
     @return dictionary with solution with keys:
          'x' - primal solution
          's' - primal slack solution
@@ -46,7 +46,15 @@ def solve(probdata, cone, opts={}, USE_INDIRECT=False):
     m, n = A.shape
 
     Adata, Aindices, Acolptr = A.data, A.indices, A.indptr
-    if USE_INDIRECT:
+    new_opts = {}
+    for key, val in opts.items():
+        new_opts[key.upper()] = opts[key]
+    opts = new_opts
+    if opts.get("use_indirect", False):
+        # HACK transfer from probdata to opts.
+        for key in ["Amul", "ATmul"]:
+            if key in probdata:
+                opts[key] = probdata[key]
         return _scs_indirect.csolve((m, n), Adata, Aindices, Acolptr, b, c, cone, opts, warm)
     else:
         return _scs_direct.csolve((m, n), Adata, Aindices, Acolptr, b, c, cone, opts, warm)

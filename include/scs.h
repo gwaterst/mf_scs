@@ -29,6 +29,9 @@ struct PROBLEM_DATA {
 	idxint VERBOSE; /* boolean, write out progress: 1 */
 	idxint NORMALIZE; /* boolean, heuristic data rescaling: 1 */
 	idxint WARM_START; /* boolean, warm start (put initial guess in Sol struct): 0 */
+	// TODO should D and E be here?
+	pfloat * D; /* row preconditioner */
+	pfloat * E; /* column preconditioner */
 };
 
 /* contains primal-dual solution arrays */
