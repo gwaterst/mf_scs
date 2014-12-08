@@ -33,6 +33,7 @@ PyObject* vec_to_nparr(const pfloat *data, idxint* length) {
 
 // Computes D and E in a matrix free way.
 void normalizeA(Data * d, Work * w, Cone * k) {
+	import_array();
 	AMatrix * A = d->A;
 	pfloat * D = scs_calloc(d->m, sizeof(pfloat));
 	pfloat * E = scs_calloc(d->n, sizeof(pfloat));
@@ -45,28 +46,28 @@ void normalizeA(Data * d, Work * w, Cone * k) {
 	tic(&normalizeTimer);
 #endif
 
-	// /* calculate row norms */
-	// for (i = 0; i < d->n; ++i) {
-	// 	c1 = A->p[i];
-	// 	c2 = A->p[i + 1];
-	// 	for (j = c1; j < c2; ++j) {
-	// 		wrk = A->x[j];
-	// 		D[A->i[j]] += wrk * wrk;
-	// 	}
-	// }
-	// for (i = 0; i < d->m; ++i) {
-	// 	D[i] = sqrt(D[i]); /* just the norms */
-	// }
-	/* Get D = |A|1 */
-	for (idxint i = 0; i < d->n; ++i) {
-		E[i] = 1;
+	/* calculate row norms */
+	for (i = 0; i < d->n; ++i) {
+		c1 = A->p[i];
+		c2 = A->p[i + 1];
+		for (j = c1; j < c2; ++j) {
+			wrk = A->x[j];
+			D[A->i[j]] += wrk * wrk;
+		}
 	}
-	PyObject* E_array = vec_to_nparr(E, &(d->n));
-	PyObject* D_array = vec_to_nparr(D, &(d->m));
-	PyObject *arglist;
-	arglist = Py_BuildValue("(OOi)", E_array, D_array, Py_True);
-	PyObject_CallObject(d->Amul, arglist);
-	Py_DECREF(arglist);
+	for (i = 0; i < d->m; ++i) {
+		D[i] = sqrt(D[i]); /* just the norms */
+	}
+	// /* Get D = |A|1 */
+	// for (idxint i = 0; i < d->n; ++i) {
+	// 	E[i] = 1;
+	// }
+	// PyObject* E_array = vec_to_nparr(E, &(d->n));
+	// PyObject* D_array = vec_to_nparr(D, &(d->m));
+	// PyObject *arglist;
+	// arglist = Py_BuildValue("(OOi)", E_array, D_array, Py_True);
+	// PyObject_CallObject(d->Amul, arglist);
+	// Py_DECREF(arglist);
 	/* mean of norms of rows across each cone  */
 
 	count = boundaries[0];
@@ -91,29 +92,29 @@ void normalizeA(Data * d, Work * w, Cone * k) {
 			D[i] = MAX_SCALE;
 
 	}
-	// /* scale the rows with D */
-	// for (i = 0; i < d->n; ++i) {
-	// 	for (j = A->p[i]; j < A->p[i + 1]; ++j) {
-	// 		A->x[j] /= D[A->i[j]];
-	// 	}
-	// }
+	/* scale the rows with D */
+	for (i = 0; i < d->n; ++i) {
+		for (j = A->p[i]; j < A->p[i + 1]; ++j) {
+			A->x[j] /= D[A->i[j]];
+		}
+	}
 
-	// /* calculate and scale by col norms, E */
-	// for (i = 0; i < d->n; ++i) {
-	// 	c1 =  A->p[i + 1] - A->p[i];
-	// 	e = calcNorm(&(A->x[A->p[i]]), c1);
-	// 	if (e < MIN_SCALE)
-	// 		e = 1;
-	// 	else if (e > MAX_SCALE)
-	// 		e = MAX_SCALE;
-	// 	scaleArray(&(A->x[A->p[i]]), 1.0 / e, c1);
-	// 	E[i] = e;
-	// }
-	/* Set E = |A^T|diag(D) */
-	scaleArray(E, 0, d->n);
-	arglist = Py_BuildValue("(OOi)", D, E, Py_True);
-	PyObject_CallObject(d->ATmul, arglist);
-	Py_DECREF(arglist);
+	/* calculate and scale by col norms, E */
+	for (i = 0; i < d->n; ++i) {
+		c1 =  A->p[i + 1] - A->p[i];
+		e = calcNorm(&(A->x[A->p[i]]), c1);
+		if (e < MIN_SCALE)
+			e = 1;
+		else if (e > MAX_SCALE)
+			e = MAX_SCALE;
+		scaleArray(&(A->x[A->p[i]]), 1.0 / e, c1);
+		E[i] = e;
+	}
+	// /* Set E = |A^T|diag(D) */
+	// scaleArray(E, 0, d->n);
+	// arglist = Py_BuildValue("(OOi)", D_array, E_array, Py_True);
+	// PyObject_CallObject(d->ATmul, arglist);
+	// Py_DECREF(arglist);
 
 	// TODO touches A.
 	nms = scs_calloc(d->m, sizeof(pfloat));
@@ -389,21 +390,26 @@ static void matVec(Data * d, Priv * p, const pfloat * x, pfloat * y) {
 	pfloat * tmp = p->tmp;
 	memset(tmp, 0, d->m * sizeof(pfloat));
 	memset(y, 0, d->n * sizeof(pfloat));
-	// Scale x by E.
-	//scaleDiag(d->n, d->E, x, y);
-	// accumByA(d, p, y, tmp);
-	accumByA(d, p, x, tmp);
-	// Scale tmp by D^2.
-	//scaleDiag(d->m, d->D, tmp, tmp);
-	//scaleDiag(d->m, d->D, tmp, tmp);
-	//memset(y, 0, d->n * sizeof(pfloat));
-	accumByAtrans(d, p, tmp, y);
-	// Scale y by E.
-	//scaleDiag(d->n, d->E, y, y);
-	// Apply scaling.
-	// if (d->SCALE != 1) {
-	// 	scaleArray(y, d->SCALE*d->SCALE, d->n);
-	// }
+	if (d->NORMALIZE && 0) {
+		// Scale x by E.
+		scaleDiag(d->n, d->E, x, y);
+		accumByA(d, p, y, tmp);
+		// accumByA(d, p, x, tmp);
+		// Scale tmp by D^2.
+		scaleDiag(d->m, d->D, tmp, tmp);
+		scaleDiag(d->m, d->D, tmp, tmp);
+		memset(y, 0, d->n * sizeof(pfloat));
+		accumByAtrans(d, p, tmp, y);
+		// Scale y by E.
+		scaleDiag(d->n, d->E, y, y);
+		// Apply scaling.
+		if (d->SCALE != 1) {
+			scaleArray(y, d->SCALE*d->SCALE, d->n);
+		}
+	} else {
+		accumByA(d, p, x, tmp);
+		accumByAtrans(d, p, tmp, y);
+	}
 	addScaledArray(y, x, d->n, d->RHO_X);
 }
 
