@@ -455,14 +455,14 @@ void accumByA(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 	// // Create arrays for x, y.
 	// // pfloat *z = malloc(sizeof(pfloat)*(d->m));
 	// // memcpy(z, y, sizeof(pfloat)*(d->m));
-	// PyObject* x_array = vec_to_nparr(x, &(d->n));
-	// PyObject* y_array = vec_to_nparr(y, &(d->m));
-	// PyObject *arglist;
-	// arglist = Py_BuildValue("(OO)", x_array, y_array);
-	// PyObject_CallObject(d->Amul, arglist);
-	// Py_DECREF(arglist);
-	AMatrix * A = d->A;
-	_accumByAtrans(d->m, p->Atx, p->Ati, p->Atp, x, y);
+	PyObject* x_array = vec_to_nparr(x, &(d->n));
+	PyObject* y_array = vec_to_nparr(y, &(d->m));
+	PyObject *arglist;
+	arglist = Py_BuildValue("(OO)", x_array, y_array);
+	PyObject_CallObject(d->Amul, arglist);
+	Py_DECREF(arglist);
+	// AMatrix * A = d->A;
+	// _accumByAtrans(d->m, p->Atx, p->Ati, p->Atp, x, y);
 	// for (int i=0; i < d->m; i++) {
 	// 	if (fabs(z[i] - y[i]) > 0.00001) {
 	// 		scs_printf("x vals %6f, %6f, %6f, %6f \n", x[0], x[1], x[2], x[3]);
