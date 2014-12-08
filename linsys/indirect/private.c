@@ -45,28 +45,28 @@ void normalizeA(Data * d, Work * w, Cone * k) {
 	tic(&normalizeTimer);
 #endif
 
-	/* calculate row norms */
-	for (i = 0; i < d->n; ++i) {
-		c1 = A->p[i];
-		c2 = A->p[i + 1];
-		for (j = c1; j < c2; ++j) {
-			wrk = A->x[j];
-			D[A->i[j]] += wrk * wrk;
-		}
-	}
-	for (i = 0; i < d->m; ++i) {
-		D[i] = sqrt(D[i]); /* just the norms */
-	}
-	// /* Get D = |A|1 */
-	// for (idxint i = 0; i < d->n; ++i) {
-	// 	E[i] = 1;
+	// /* calculate row norms */
+	// for (i = 0; i < d->n; ++i) {
+	// 	c1 = A->p[i];
+	// 	c2 = A->p[i + 1];
+	// 	for (j = c1; j < c2; ++j) {
+	// 		wrk = A->x[j];
+	// 		D[A->i[j]] += wrk * wrk;
+	// 	}
 	// }
-	// PyObject* E_array = vec_to_nparr(E, &(d->n));
-	// PyObject* D_array = vec_to_nparr(D, &(d->m));
-	// PyObject *arglist;
-	// arglist = Py_BuildValue("(OOi)", E_array, D_array, Py_True);
-	// PyObject_CallObject(d->Amul, arglist);
-	// Py_DECREF(arglist);
+	// for (i = 0; i < d->m; ++i) {
+	// 	D[i] = sqrt(D[i]); /* just the norms */
+	// }
+	/* Get D = |A|1 */
+	for (idxint i = 0; i < d->n; ++i) {
+		E[i] = 1;
+	}
+	PyObject* E_array = vec_to_nparr(E, &(d->n));
+	PyObject* D_array = vec_to_nparr(D, &(d->m));
+	PyObject *arglist;
+	arglist = Py_BuildValue("(OOi)", E_array, D_array, Py_True);
+	PyObject_CallObject(d->Amul, arglist);
+	Py_DECREF(arglist);
 	/* mean of norms of rows across each cone  */
 
 	count = boundaries[0];
@@ -91,29 +91,29 @@ void normalizeA(Data * d, Work * w, Cone * k) {
 			D[i] = MAX_SCALE;
 
 	}
-	/* scale the rows with D */
-	for (i = 0; i < d->n; ++i) {
-		for (j = A->p[i]; j < A->p[i + 1]; ++j) {
-			A->x[j] /= D[A->i[j]];
-		}
-	}
+	// /* scale the rows with D */
+	// for (i = 0; i < d->n; ++i) {
+	// 	for (j = A->p[i]; j < A->p[i + 1]; ++j) {
+	// 		A->x[j] /= D[A->i[j]];
+	// 	}
+	// }
 
-	/* calculate and scale by col norms, E */
-	for (i = 0; i < d->n; ++i) {
-		c1 =  A->p[i + 1] - A->p[i];
-		e = calcNorm(&(A->x[A->p[i]]), c1);
-		if (e < MIN_SCALE)
-			e = 1;
-		else if (e > MAX_SCALE)
-			e = MAX_SCALE;
-		scaleArray(&(A->x[A->p[i]]), 1.0 / e, c1);
-		E[i] = e;
-	}
-	// /* Set E = |A^T|diag(D) */
-	// scaleArray(E, 0, d->n);
-	// arglist = Py_BuildValue("(OOi)", D, E, Py_True);
-	// PyObject_CallObject(d->ATmul, arglist);
-	// Py_DECREF(arglist);
+	// /* calculate and scale by col norms, E */
+	// for (i = 0; i < d->n; ++i) {
+	// 	c1 =  A->p[i + 1] - A->p[i];
+	// 	e = calcNorm(&(A->x[A->p[i]]), c1);
+	// 	if (e < MIN_SCALE)
+	// 		e = 1;
+	// 	else if (e > MAX_SCALE)
+	// 		e = MAX_SCALE;
+	// 	scaleArray(&(A->x[A->p[i]]), 1.0 / e, c1);
+	// 	E[i] = e;
+	// }
+	/* Set E = |A^T|diag(D) */
+	scaleArray(E, 0, d->n);
+	arglist = Py_BuildValue("(OOi)", D, E, Py_True);
+	PyObject_CallObject(d->ATmul, arglist);
+	Py_DECREF(arglist);
 
 	// TODO touches A.
 	nms = scs_calloc(d->m, sizeof(pfloat));
