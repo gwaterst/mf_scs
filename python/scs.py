@@ -46,12 +46,12 @@ def solve(probdata, cone, **opts):
     m, n = A.shape
 
     Adata, Aindices, Acolptr = A.data, A.indices, A.indptr
+    # Convert keys to upper case.
     new_opts = {}
     for key, val in opts.items():
         new_opts[key.upper()] = opts[key]
     opts = new_opts
-    if opts.get("use_indirect", False):
-        print "hello"
+    if opts.get("USE_INDIRECT", False):
         # HACK transfer from probdata to opts.
         for key in ["Amul", "ATmul"]:
             if key in probdata:
