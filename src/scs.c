@@ -132,6 +132,7 @@ idxint scs_solve(Work * w, Data * d, Cone * k, Sol * sol, Info * info) {
 
 static void updateWork(Data * d, Work * w, Sol * sol) {
 	/* before normalization */
+	printf("prenorm c %f\n", calcNorm(d->c, d->n));
 	idxint n = d->n;
 	idxint m = d->m;
 	w->nm_b = calcNorm(d->b, m);
@@ -143,9 +144,12 @@ static void updateWork(Data * d, Work * w, Sol * sol) {
 	} else {
 		coldStartVars(d, w);
 	}
+	printf("norm c %f\n", calcNorm(d->c, d->n));
+	printf("norm b %f\n", calcNorm(d->b, d->m));
 	memcpy(w->h, d->c, n * sizeof(pfloat));
 	memcpy(&(w->h[d->n]), d->b, m * sizeof(pfloat));
 	memcpy(w->g, w->h, (n + m) * sizeof(pfloat));
+	printf("norm w->g %f\n", calcNorm(w->g, d->n));
 	solveLinSys(d, w->p, w->g, NULL, -1);
 	scaleArray(&(w->g[d->n]), -1, m);
 	w->gTh = innerProd(w->h, w->g, n + m);

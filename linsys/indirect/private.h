@@ -11,7 +11,9 @@ struct PRIVATE_DATA {
 	pfloat *r; /* cg residual */
 	pfloat *x;
 	pfloat * Ap;
-	pfloat * tmp;
+	pfloat * tmp_n;
+	pfloat * tmp_m;
+	pfloat * tmp_matvec;
 	pfloat * Atx;
 	idxint * Ati;
 	idxint * Atp;

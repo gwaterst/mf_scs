@@ -18,6 +18,8 @@ void normalizeBC(Data * d, Work * w) {
 	}
 	w->sc_c = w->meanNormRowA / MAX(calcNorm(d->c, d->n), MIN_SCALE);
 	scaleArray(d->b, w->sc_b * d->SCALE, d->m);
+	printf("postnorm c %f\n", calcNorm(d->c, d->n));
+	printf("scaling %f\n", w->meanNormRowA);
 	scaleArray(d->c, w->sc_c * d->SCALE, d->n);
 }
 
@@ -42,6 +44,7 @@ void calcScaledResids(Data * d, Work * w, struct residuals * r) {
 	tmp = u[n + m] - u_t[n + m];
 	r->resPri += tmp * tmp;
 	r->resPri = sqrt(r->resPri);
+	printf("primal resid %f\n", r->resPri);
 
 	r->resDual = 0;
 	for (i = 0; i < n; ++i) {
