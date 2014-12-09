@@ -46,28 +46,28 @@ void normalizeA(Data * d, Work * w, Cone * k) {
 	tic(&normalizeTimer);
 #endif
 
-	/* calculate row norms */
-	for (i = 0; i < d->n; ++i) {
-		c1 = A->p[i];
-		c2 = A->p[i + 1];
-		for (j = c1; j < c2; ++j) {
-			wrk = A->x[j];
-			D[A->i[j]] += wrk * wrk;
-		}
-	}
-	for (i = 0; i < d->m; ++i) {
-		D[i] = sqrt(D[i]); /* just the norms */
-	}
-	// /* Get D = |A|1 */
-	// for (idxint i = 0; i < d->n; ++i) {
-	// 	E[i] = 1;
+	// /* calculate row norms */
+	// for (i = 0; i < d->n; ++i) {
+	// 	c1 = A->p[i];
+	// 	c2 = A->p[i + 1];
+	// 	for (j = c1; j < c2; ++j) {
+	// 		wrk = A->x[j];
+	// 		D[A->i[j]] += wrk * wrk;
+	// 	}
 	// }
-	// PyObject* E_array = vec_to_nparr(E, &(d->n));
-	// PyObject* D_array = vec_to_nparr(D, &(d->m));
-	// PyObject *arglist;
-	// arglist = Py_BuildValue("(OOi)", E_array, D_array, Py_True);
-	// PyObject_CallObject(d->Amul, arglist);
-	// Py_DECREF(arglist);
+	// for (i = 0; i < d->m; ++i) {
+	// 	D[i] = sqrt(D[i]); /* just the norms */
+	// }
+	/* Get D = |A|1 */
+	for (idxint i = 0; i < d->n; ++i) {
+		E[i] = 1;
+	}
+	PyObject* E_array = vec_to_nparr(E, &(d->n));
+	PyObject* D_array = vec_to_nparr(D, &(d->m));
+	PyObject *arglist;
+	arglist = Py_BuildValue("(OOi)", E_array, D_array, Py_True);
+	PyObject_CallObject(d->Amul, arglist);
+	Py_DECREF(arglist);
 	/* mean of norms of rows across each cone  */
 
 	count = boundaries[0];
@@ -99,22 +99,22 @@ void normalizeA(Data * d, Work * w, Cone * k) {
 	// 	}
 	// }
 
-	/* calculate and scale by col norms, E */
-	for (i = 0; i < d->n; ++i) {
-		c1 =  A->p[i + 1] - A->p[i];
-		e = calcNorm(&(A->x[A->p[i]]), c1);
-		if (e < MIN_SCALE)
-			e = 1;
-		else if (e > MAX_SCALE)
-			e = MAX_SCALE;
-		//scaleArray(&(A->x[A->p[i]]), 1.0 / e, c1);
-		E[i] = e;
-	}
-	// /* Set E = |A^T|diag(D) */
-	// scaleArray(E, 0, d->n);
-	// arglist = Py_BuildValue("(OOi)", D_array, E_array, Py_True);
-	// PyObject_CallObject(d->ATmul, arglist);
-	// Py_DECREF(arglist);
+	// /* calculate and scale by col norms, E */
+	// for (i = 0; i < d->n; ++i) {
+	// 	c1 =  A->p[i + 1] - A->p[i];
+	// 	e = calcNorm(&(A->x[A->p[i]]), c1);
+	// 	if (e < MIN_SCALE)
+	// 		e = 1;
+	// 	else if (e > MAX_SCALE)
+	// 		e = MAX_SCALE;
+	// 	//scaleArray(&(A->x[A->p[i]]), 1.0 / e, c1);
+	// 	E[i] = e;
+	// }
+	/* Set E = |A^T|diag(D) */
+	scaleArray(E, 0, d->n);
+	arglist = Py_BuildValue("(OOi)", D_array, E_array, Py_True);
+	PyObject_CallObject(d->ATmul, arglist);
+	Py_DECREF(arglist);
 
 	// TODO touches A.
 	nms = scs_calloc(d->m, sizeof(pfloat));
@@ -130,9 +130,9 @@ void normalizeA(Data * d, Work * w, Cone * k) {
 	}
 	scs_free(nms);
 	// TODO touches A.
-	if (d->SCALE != 1) {
-		scaleArray(A->x, d->SCALE, A->p[d->n]);
-	}
+	// if (d->SCALE != 1) {
+	// 	scaleArray(A->x, d->SCALE, A->p[d->n]);
+	// }
 
 	w->D = D;
 	w->E = E;
@@ -438,22 +438,25 @@ void _accumByAtrans(idxint n, pfloat * Ax, idxint * Ai, idxint * Ap, const pfloa
 	}
 }
 
-// y += EA'Dx
+// y += EA'D*SCALE*x
 void accumByAtrans(Data * d, Priv * p, const pfloat *x, pfloat *y) {
-	// Create arrays for x, y.
-	pfloat *z = malloc(sizeof(pfloat)*(d->n));
-	memcpy(z, y, sizeof(pfloat)*(d->n));
-
+	// // Create arrays for x, y.
+	// pfloat *z = malloc(sizeof(pfloat)*(d->n));
+	// memcpy(z, y, sizeof(pfloat)*(d->n));
+	resetTmp(d, p);
 	PyObject* x_array;
 	PyObject* y_array;
 	if (d->NORMALIZE) {
-		resetTmp(d, p);
 		// tmp_m = D*x.
 		accScaleDiag(d->m, d->D, x, p->tmp_m);
+		// tmp_m *= SCALE.
+		scaleArray(p->tmp_m, d->SCALE, d->m);
 		x_array = vec_to_nparr(p->tmp_m, &(d->m));
 		y_array = vec_to_nparr(p->tmp_n, &(d->n));
 	} else {
-		x_array = vec_to_nparr(x, &(d->m));
+		// tmp_m += SCALE*x.
+		addScaledArray(p->tmp_m, x, d->SCALE, d->m);
+		x_array = vec_to_nparr(p->tmp_m, &(d->m));
 		y_array = vec_to_nparr(y, &(d->n));
 	}
 	PyObject *arglist;
@@ -466,41 +469,40 @@ void accumByAtrans(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 		accScaleDiag(d->n, d->E, p->tmp_n, y);
 	}
 
-	AMatrix * A = d->A;
-	resetTmp(d, p);
-	accScaleDiag(d->m, d->D, x, p->tmp_m);
-	_accumByAtrans(d->n, A->x, A->i, A->p, p->tmp_m, p->tmp_n);
-	accScaleDiag(d->n, d->E, p->tmp_n, z);
-	// pfloat z_norm = calcNorm(z, d->n);
-	// addScaledArray(y, z, d->n, -1);
-	// if (calcNorm(z, d->n)/z_norm > 1e-5) {
-	// 	printf("z-y is not zero \n");
+	// AMatrix * A = d->A;
+	// resetTmp(d, p);
+	// accScaleDiag(d->m, d->D, x, p->tmp_m);
+	// _accumByAtrans(d->n, A->x, A->i, A->p, p->tmp_m, p->tmp_n);
+	// accScaleDiag(d->n, d->E, p->tmp_n, z);
+	// for (int i=0; i < d->n; i++) {
+	// 	if (abs(z[i] - y[i]) > 1e-4) {
+	// 		scs_printf("x vals %6f, %6f \n", x[0], x[1]);
+	// 		scs_printf("z val %6f, y val %6f \n", z[i], y[i]);
+	// 		scs_printf("difference %12f at %i\n", z[i] - y[i], i);
+	// 	}
 	// }
-	for (int i=0; i < d->n; i++) {
-		if (abs(z[i] - y[i]) > 1e-4) {
-			scs_printf("x vals %6f, %6f \n", x[0], x[1]);
-			scs_printf("z val %6f, y val %6f \n", z[i], y[i]);
-			scs_printf("difference %12f at %i\n", z[i] - y[i], i);
-		}
-	}
-	free(z);
+	// free(z);
 }
 
-// y += DAEx
+// y += DAE*SCALE*x
 void accumByA(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 	// // Create arrays for x, y.
 	// // pfloat *z = malloc(sizeof(pfloat)*(d->m));
 	// // memcpy(z, y, sizeof(pfloat)*(d->m));
 	PyObject* x_array;
 	PyObject* y_array;
+	resetTmp(d, p);
 	if (d->NORMALIZE) {
-		resetTmp(d, p);
 		// tmp_n = E*x.
 		accScaleDiag(d->n, d->E, x, p->tmp_n);
+		// tmp_n *= SCALE.
+		scaleArray(p->tmp_n, d->SCALE, d->n);
 		x_array = vec_to_nparr(p->tmp_n, &(d->n));
 		y_array = vec_to_nparr(p->tmp_m, &(d->m));
 	} else {
-		x_array = vec_to_nparr(x, &(d->n));
+		// tmp_n += SCALE*x.
+		addScaledArray(p->tmp_n, x, d->SCALE, d->n);
+		x_array = vec_to_nparr(p->tmp_n, &(d->n));
 		y_array = vec_to_nparr(y, &(d->m));
 	}
 	PyObject *arglist;
