@@ -13,6 +13,7 @@ static idxint pcg(Data *d, Priv * p, const pfloat *s, pfloat * b, idxint max_its
 static void transpose(Data * d, Priv * p);
 static void resetTmp(Data * d, Priv * p);
 static void accScaleDiag(idxint n, const pfloat *diag, const pfloat * x, pfloat * y);
+static void invDiag(idxint n, const pfloat *diag, pfloat * x);
 
 static idxint totCgIts;
 static timer linsysTimer;
@@ -34,8 +35,10 @@ PyObject* vec_to_nparr(const pfloat *data, idxint* length) {
 }
 
 // Computes D and E in a matrix free way.
-void normalizeA(Data * d, Work * w, Cone * k) {
+void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 	import_array();
+	PyObject* E_array;
+	PyObject* D_array;
 	AMatrix * A = d->A;
 	pfloat * D = scs_calloc(d->m, sizeof(pfloat));
 	pfloat * E = scs_calloc(d->n, sizeof(pfloat));
@@ -62,14 +65,16 @@ void normalizeA(Data * d, Work * w, Cone * k) {
 	// }
 	// Initialize E = 1.
 	for (idxint i = 0; i < d->n; ++i) {
-		E[i] = 1;
+		E[i] = 1.0;
 	}
-	PyObject* E_array = vec_to_nparr(E, &(d->n));
-	PyObject* D_array = vec_to_nparr(D, &(d->m));
 	for (idxint k = 0; k < 10; ++k) {
 		// One iteration of algorithm.
-		/* Set D = (n/m)|A|E */
+		resetTmp(d, p);
+		/* Set D = (n/m)|A|diag(E^-1) */
 		memset(D, 0, d->m * sizeof(pfloat));
+		invDiag(d->n, E, p->tmp_n);
+		E_array = vec_to_nparr(p->tmp_n, &(d->n));
+		D_array = vec_to_nparr(D, &(d->m));
 		PyObject *arglist;
 		arglist = Py_BuildValue("(OOi)", E_array, D_array, Py_True);
 		PyObject_CallObject(d->Amul, arglist);
@@ -82,11 +87,11 @@ void normalizeA(Data * d, Work * w, Cone * k) {
 			wrk = 0;
 			delta = boundaries[i];
 			for (j = count; j < count + delta; ++j) {
-				wrk += D[j];
+				wrk += 1.0/D[j];
 			}
 			wrk /= delta;
 			for (j = count; j < count + delta; ++j) {
-				D[j] = wrk;
+				D[j] = 1.0/wrk;
 			}
 			count += delta;
 		}
@@ -116,8 +121,11 @@ void normalizeA(Data * d, Work * w, Cone * k) {
 		// 	//scaleArray(&(A->x[A->p[i]]), 1.0 / e, c1);
 		// 	E[i] = e;
 		// }
-		/* Set E = |A^T|diag(D) */
+		/* Set E = |A^T|diag(D^-1) */
 		memset(E, 0, d->n * sizeof(pfloat));
+		invDiag(d->m, D, p->tmp_m);
+		E_array = vec_to_nparr(E, &(d->n));
+		D_array = vec_to_nparr(p->tmp_m, &(d->m));
 		arglist = Py_BuildValue("(OOi)", D_array, E_array, Py_True);
 		PyObject_CallObject(d->ATmul, arglist);
 		Py_DECREF(arglist);
@@ -137,6 +145,7 @@ void normalizeA(Data * d, Work * w, Cone * k) {
 	// for (i = 0; i < d->m; ++i) {
 	// 	w->meanNormRowA += sqrt(nms[i]) / d->m;
 	// }
+	w->meanNormRowA = ((pfloat) d->n/d->m);
 	// scs_free(nms);
 	// TODO touches A.
 	// if (d->SCALE != 1) {
@@ -395,9 +404,16 @@ static idxint pcg(Data *d, Priv * pr, const pfloat * s, pfloat * b, idxint max_i
 }
 
 /*  y += diag^-1*x */
-static void accScaleDiag(idxint n, const pfloat *diag, const pfloat * x, pfloat * y) {
-	for (idxint i = 0; i < n; i++) {
+static void accScaleDiag(idxint len, const pfloat *diag, const pfloat * x, pfloat * y) {
+	for (idxint i = 0; i < len; i++) {
 		y[i] += x[i]/diag[i];
+	}
+}
+
+/*  x = diag^-1*1 */
+static void invDiag(idxint len, const pfloat *diag, pfloat * x) {
+	for (idxint i = 0; i < len; i++) {
+		x[i] = 1.0/diag[i];
 	}
 }
 

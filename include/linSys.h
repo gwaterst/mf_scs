@@ -33,7 +33,7 @@ char * getLinSysSummary(Priv * p, Info * info);
 /* normalizes A matrix, sets w->E and w->D diagonal scaling matrices, Anew = d->SCALE * (D^-1)*A*(E^-1) (different to paper which is D*A*E)
  * D and E must be all positive entries, D must satisfy cone boundaries
  * must set (w->meanNormRowA = mean of norms of rows of normalized A) THEN scale resulting A by d->SCALE */
-void normalizeA(Data * d, Work * w, Cone * k);
+void normalizeA(Data * d, Priv * p, Work * w, Cone * k);
 /* unnormalizes A matrix, unnormalizes by w->D and w->E and d->SCALE */
 void unNormalizeA(Data *d, Work * w);
 /* Computes D and E in a matrix free way. */

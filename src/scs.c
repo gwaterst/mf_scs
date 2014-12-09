@@ -432,20 +432,20 @@ static Work * initWork(Data *d, Cone * k) {
 		scs_finish(d, w);
 		return NULL;
 	}
+	w->p = initPriv(d);
+	if (!w->p) {
+		scs_printf("ERROR: initPriv failure\n");
+		scs_finish(d, w);
+		return NULL;
+	}
 	if (d->NORMALIZE) {
-		normalizeA(d, w, k);
+		normalizeA(d, w->p, w, k);
 	} else {
 		w->D = NULL;
 		w->E = NULL;
 	}
 	if (initCone(k) < 0) {
 		scs_printf("ERROR: initCone failure\n");
-		scs_finish(d, w);
-		return NULL;
-	}
-	w->p = initPriv(d);
-	if (!w->p) {
-		scs_printf("ERROR: initPriv failure\n");
 		scs_finish(d, w);
 		return NULL;
 	}

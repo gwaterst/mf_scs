@@ -18,7 +18,7 @@ static pfloat totalSolveTime;
 #define MIN_SCALE 1e-2
 #define MAX_SCALE 1e3
 
-void normalizeA(Data * d, Work * w, Cone * k) {
+void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 	AMatrix * A = d->A;
 	pfloat * D = scs_calloc(d->m, sizeof(pfloat));
 	pfloat * E = scs_calloc(d->n, sizeof(pfloat));
