@@ -40,6 +40,15 @@ pfloat calcNorm(const pfloat * v, idxint len) {
 	return sqrt(calcNormSq(v, len));
 }
 
+/* ||v||_1 */
+pfloat calcNorm1(const pfloat * v, idxint len) {
+	pfloat sum = 0.0;
+	for (idxint i = 0; i < len; ++i) {
+		sum += ABS(v[i]);
+	}
+	return sum;
+}
+
 pfloat calcNormInf(const pfloat *a, idxint l) {
 	pfloat tmp, max = 0.0;
 	idxint i;

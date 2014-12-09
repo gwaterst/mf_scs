@@ -11,6 +11,8 @@
 static void matVec(Data * d, Priv * p, const pfloat * x, pfloat * y);
 static idxint pcg(Data *d, Priv * p, const pfloat *s, pfloat * b, idxint max_its, pfloat tol);
 static void transpose(Data * d, Priv * p);
+static void resetTmp(Data * d, Priv * p);
+static void accScaleDiag(idxint n, const pfloat *diag, const pfloat * x, pfloat * y);
 
 static idxint totCgIts;
 static timer linsysTimer;
@@ -58,77 +60,84 @@ void normalizeA(Data * d, Work * w, Cone * k) {
 	// for (i = 0; i < d->m; ++i) {
 	// 	D[i] = sqrt(D[i]); /* just the norms */
 	// }
-	/* Get D = |A|1 */
+	// Initialize E = 1.
 	for (idxint i = 0; i < d->n; ++i) {
 		E[i] = 1;
 	}
 	PyObject* E_array = vec_to_nparr(E, &(d->n));
 	PyObject* D_array = vec_to_nparr(D, &(d->m));
-	PyObject *arglist;
-	arglist = Py_BuildValue("(OOi)", E_array, D_array, Py_True);
-	PyObject_CallObject(d->Amul, arglist);
-	Py_DECREF(arglist);
-	/* mean of norms of rows across each cone  */
+	for (idxint k = 0; k < 10; ++k) {
+		// One iteration of algorithm.
+		/* Set D = (n/m)|A|E */
+		memset(D, 0, d->m * sizeof(pfloat));
+		PyObject *arglist;
+		arglist = Py_BuildValue("(OOi)", E_array, D_array, Py_True);
+		PyObject_CallObject(d->Amul, arglist);
+		Py_DECREF(arglist);
+		scaleArray(D,(pfloat) d->n/d->m, d->m);
+		/* mean of norms of rows across each cone  */
 
-	count = boundaries[0];
-	for (i = 1; i < numBoundaries; ++i) {
-		wrk = 0;
-		delta = boundaries[i];
-		for (j = count; j < count + delta; ++j) {
-			wrk += D[j];
+		count = boundaries[0];
+		for (i = 1; i < numBoundaries; ++i) {
+			wrk = 0;
+			delta = boundaries[i];
+			for (j = count; j < count + delta; ++j) {
+				wrk += D[j];
+			}
+			wrk /= delta;
+			for (j = count; j < count + delta; ++j) {
+				D[j] = wrk;
+			}
+			count += delta;
 		}
-		wrk /= delta;
-		for (j = count; j < count + delta; ++j) {
-			D[j] = wrk;
+
+		for (i = 0; i < d->m; ++i) {
+			if (D[i] < MIN_SCALE) {
+				D[i] = 1;
+			} else if (D[i] > MAX_SCALE) {
+				D[i] = MAX_SCALE;
+			}
 		}
-		count += delta;
+		// /* scale the rows with D */
+		// for (i = 0; i < d->n; ++i) {
+		// 	for (j = A->p[i]; j < A->p[i + 1]; ++j) {
+		// 		A->x[j] /= D[A->i[j]];
+		// 	}
+		// }
+
+		// /* calculate and scale by col norms, E */
+		// for (i = 0; i < d->n; ++i) {
+		// 	c1 =  A->p[i + 1] - A->p[i];
+		// 	e = calcNorm(&(A->x[A->p[i]]), c1);
+		// 	if (e < MIN_SCALE)
+		// 		e = 1;
+		// 	else if (e > MAX_SCALE)
+		// 		e = MAX_SCALE;
+		// 	//scaleArray(&(A->x[A->p[i]]), 1.0 / e, c1);
+		// 	E[i] = e;
+		// }
+		/* Set E = |A^T|diag(D) */
+		memset(E, 0, d->n * sizeof(pfloat));
+		arglist = Py_BuildValue("(OOi)", D_array, E_array, Py_True);
+		PyObject_CallObject(d->ATmul, arglist);
+		Py_DECREF(arglist);
+		// scaleArray(E, (pfloat)d->m/d->n, d->n);
 	}
 	scs_free(boundaries);
 
-	for (i = 0; i < d->m; ++i) {
-		if (D[i] < MIN_SCALE) {
-			D[i] = 1;
-		} else if (D[i] > MAX_SCALE) {
-			D[i] = MAX_SCALE;
-		}
-	}
-	// /* scale the rows with D */
+	// // TODO touches A.
+	// nms = scs_calloc(d->m, sizeof(pfloat));
 	// for (i = 0; i < d->n; ++i) {
 	// 	for (j = A->p[i]; j < A->p[i + 1]; ++j) {
-	// 		A->x[j] /= D[A->i[j]];
+	// 		wrk = A->x[j]/(D[A->i[j]]*E[i]);
+	// 		nms[A->i[j]] += wrk * wrk;
 	// 	}
 	// }
-
-	// /* calculate and scale by col norms, E */
-	// for (i = 0; i < d->n; ++i) {
-	// 	c1 =  A->p[i + 1] - A->p[i];
-	// 	e = calcNorm(&(A->x[A->p[i]]), c1);
-	// 	if (e < MIN_SCALE)
-	// 		e = 1;
-	// 	else if (e > MAX_SCALE)
-	// 		e = MAX_SCALE;
-	// 	//scaleArray(&(A->x[A->p[i]]), 1.0 / e, c1);
-	// 	E[i] = e;
+	// w->meanNormRowA = 0.0;
+	// for (i = 0; i < d->m; ++i) {
+	// 	w->meanNormRowA += sqrt(nms[i]) / d->m;
 	// }
-	/* Set E = |A^T|diag(D) */
-	scaleArray(E, 0, d->n);
-	arglist = Py_BuildValue("(OOi)", D_array, E_array, Py_True);
-	PyObject_CallObject(d->ATmul, arglist);
-	Py_DECREF(arglist);
-
-	// TODO touches A.
-	nms = scs_calloc(d->m, sizeof(pfloat));
-	for (i = 0; i < d->n; ++i) {
-		for (j = A->p[i]; j < A->p[i + 1]; ++j) {
-			wrk = A->x[j]/(D[A->i[j]]*E[i]);
-			nms[A->i[j]] += wrk * wrk;
-		}
-	}
-	w->meanNormRowA = 0.0;
-	for (i = 0; i < d->m; ++i) {
-		w->meanNormRowA += sqrt(nms[i]) / d->m;
-	}
-	scs_free(nms);
+	// scs_free(nms);
 	// TODO touches A.
 	// if (d->SCALE != 1) {
 	// 	scaleArray(A->x, d->SCALE, A->p[d->n]);
@@ -392,11 +401,10 @@ static void accScaleDiag(idxint n, const pfloat *diag, const pfloat * x, pfloat 
 	}
 }
 
-
-/* Zeros out tmp_n and tmp_m. */
+/* Resets tmp_n and tmp_m to zeros. */
 static void resetTmp(Data * d, Priv * p) {
-	memset(p->tmp_n, 0, d->n * sizeof(pfloat));
 	memset(p->tmp_m, 0, d->m * sizeof(pfloat));
+	memset(p->tmp_n, 0, d->n * sizeof(pfloat));
 }
 
 /*y = (RHO_X * I + A'A)x */

@@ -11,15 +11,14 @@ void normalizeBC(Data * d, Work * w) {
 	for (i = 0; i < d->m; ++i) {
 		d->b[i] /= D[i];
 	}
-	w->sc_b = 1 / MAX(calcNorm(d->b, d->m), MIN_SCALE);
+	w->sc_b = 1 / MAX(calcNorm1(d->b, d->m), MIN_SCALE);
 	/* scale c */
 	for (i = 0; i < d->n; ++i) {
 		d->c[i] /= E[i];
 	}
-	w->sc_c = w->meanNormRowA / MAX(calcNorm(d->c, d->n), MIN_SCALE);
+	// w->sc_c = w->meanNormRowA / MAX(calcNorm(d->c, d->n), MIN_SCALE);
+	w->sc_c =  ((pfloat) d->n/d->m) / MAX(calcNorm1(d->c, d->n), MIN_SCALE);
 	scaleArray(d->b, w->sc_b * d->SCALE, d->m);
-	printf("postnorm c %f\n", calcNorm(d->c, d->n));
-	printf("scaling %f\n", w->meanNormRowA);
 	scaleArray(d->c, w->sc_c * d->SCALE, d->n);
 }
 

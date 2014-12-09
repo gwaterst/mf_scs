@@ -9,6 +9,7 @@ void scaleArray(pfloat * a, const pfloat b, idxint len);
 pfloat innerProd(const pfloat * x, const pfloat * y, idxint len);
 pfloat calcNormSq(const pfloat * v, idxint len);
 pfloat calcNorm(const pfloat * v, idxint len);
+pfloat calcNorm1(const pfloat * v, idxint len);
 pfloat calcNormInf(const pfloat *a, idxint l);
 void addScaledArray(pfloat * a, const pfloat * b, idxint n, const pfloat sc);
 pfloat calcNormDiff(const pfloat *a, const pfloat *b, idxint l);
