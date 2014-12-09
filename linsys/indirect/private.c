@@ -461,21 +461,29 @@ void accumByAtrans(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 	PyObject_CallObject(d->ATmul, arglist);
 	Py_DECREF(arglist);
 
+	// y += E*tmp_n.
+	if (d->NORMALIZE) {
+		accScaleDiag(d->n, d->E, p->tmp_n, y);
+	}
+
 	AMatrix * A = d->A;
-	_accumByAtrans(d->n, A->x, A->i, A->p, tmp_m, z);
+	resetTmp(d, p);
+	accScaleDiag(d->m, d->D, x, p->tmp_m);
+	_accumByAtrans(d->n, A->x, A->i, A->p, p->tmp_m, p->tmp_n);
+	accScaleDiag(d->n, d->E, p->tmp_n, z);
+	// pfloat z_norm = calcNorm(z, d->n);
+	// addScaledArray(y, z, d->n, -1);
+	// if (calcNorm(z, d->n)/z_norm > 1e-5) {
+	// 	printf("z-y is not zero \n");
+	// }
 	for (int i=0; i < d->n; i++) {
-		if (z[i] - y[i] > 0.0) {
+		if (abs(z[i] - y[i]) > 1e-4) {
 			scs_printf("x vals %6f, %6f \n", x[0], x[1]);
 			scs_printf("z val %6f, y val %6f \n", z[i], y[i]);
 			scs_printf("difference %12f at %i\n", z[i] - y[i], i);
 		}
 	}
 	free(z);
-
-	// y += E*tmp_n.
-	if (d->NORMALIZE) {
-		accScaleDiag(d->n, d->E, p->tmp_n, y);
-	}
 }
 
 // y += DAEx
@@ -499,6 +507,7 @@ void accumByA(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 	arglist = Py_BuildValue("(OO)", x_array, y_array);
 	PyObject_CallObject(d->Amul, arglist);
 	Py_DECREF(arglist);
+
 	// y += D*tmp_m.
 	if (d->NORMALIZE) {
 		accScaleDiag(d->m, d->D, p->tmp_m, y);
