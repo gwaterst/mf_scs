@@ -13,6 +13,7 @@ static idxint pcg(Data *d, Priv * p, const pfloat *s, pfloat * b, idxint max_its
 static void transpose(Data * d, Priv * p);
 static void resetTmp(Data * d, Priv * p);
 static void accScaleDiag(idxint n, const pfloat *diag, const pfloat * x, pfloat * y);
+static void scaleDiag(idxint len, const pfloat *diag, pfloat * x);
 static void invDiag(idxint n, const pfloat *diag, pfloat * x);
 
 static idxint totCgIts;
@@ -63,10 +64,11 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 	// for (i = 0; i < d->m; ++i) {
 	// 	D[i] = sqrt(D[i]); /* just the norms */
 	// }
-	// Initialize E = 1.
-	for (idxint i = 0; i < d->n; ++i) {
-		E[i] = 1.0;
-	}
+
+	// Initialize E and D = 1.
+	memset(D, 1, d->m * sizeof(pfloat));
+	memset(E, 1, d->n * sizeof(pfloat));
+
 	for (idxint k = 0; k < d->EQUIL_STEPS; ++k) {
 		// One iteration of algorithm.
 		resetTmp(d, p);
@@ -79,7 +81,6 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 		arglist = Py_BuildValue("(OOi)", E_array, D_array, Py_True);
 		PyObject_CallObject(d->Amul, arglist);
 		Py_DECREF(arglist);
-		scaleArray(D,(pfloat) d->n/d->m, d->m);
 		/* mean of norms of rows across each cone  */
 
 		count = boundaries[0];
@@ -87,14 +88,15 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 			wrk = 0;
 			delta = boundaries[i];
 			for (j = count; j < count + delta; ++j) {
-				wrk += 1.0/D[j];
+				wrk += D[j];
 			}
 			wrk /= delta;
 			for (j = count; j < count + delta; ++j) {
-				D[j] = 1.0/wrk;
+				D[j] = wrk;
 			}
 			count += delta;
 		}
+		scaleArray(D,(pfloat) d->m/d->n, d->m);
 
 		for (i = 0; i < d->m; ++i) {
 			if (D[i] < MIN_SCALE) {
@@ -145,18 +147,32 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 	// for (i = 0; i < d->m; ++i) {
 	// 	w->meanNormRowA += sqrt(nms[i]) / d->m;
 	// }
-	w->meanNormRowA = ((pfloat) d->n/d->m);
+
 	// scs_free(nms);
 	// TODO touches A.
 	// if (d->SCALE != 1) {
 	// 	scaleArray(A->x, d->SCALE, A->p[d->n]);
 	// }
 
+	//w->meanNormRowA = ((pfloat) d->n/d->m);
+	// meanNormRowA = D^-1|A|E^-1/m
+	resetTmp(d, p);
+	invDiag(d->n, E, p->tmp_n);
+	E_array = vec_to_nparr(p->tmp_n, &(d->n));
+	D_array = vec_to_nparr(p->tmp_m, &(d->m));
+	PyObject *arglist;
+	arglist = Py_BuildValue("(OOi)", E_array, D_array, Py_True);
+	PyObject_CallObject(d->Amul, arglist);
+	Py_DECREF(arglist);
+	// Scale by D^-1.
+	scaleDiag(d->m, D, p->tmp_m);
+	w->meanNormRowA = calcNorm1(p->tmp_m, d->m)/d->m;
+
 	w->D = D;
 	w->E = E;
 	// Also store in data.
-	d->D = D;
-	d->E = E;
+	p->D = D;
+	p->E = E;
 
 #ifdef EXTRAVERBOSE
 	scs_printf("finished normalizing A, time: %6f s\n", tocq(&normalizeTimer) / 1e3);
@@ -410,6 +426,13 @@ static void accScaleDiag(idxint len, const pfloat *diag, const pfloat * x, pfloa
 	}
 }
 
+/*  x = diag^-1*x */
+static void scaleDiag(idxint len, const pfloat *diag, pfloat * x) {
+	for (idxint i = 0; i < len; i++) {
+		x[i] /= diag[i];
+	}
+}
+
 /*  x = diag^-1*1 */
 static void invDiag(idxint len, const pfloat *diag, pfloat * x) {
 	for (idxint i = 0; i < len; i++) {
@@ -472,7 +495,7 @@ void accumByAtrans(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 	PyObject* y_array;
 	if (d->NORMALIZE) {
 		// tmp_m = D*x.
-		accScaleDiag(d->m, d->D, x, p->tmp_m);
+		accScaleDiag(d->m, p->D, x, p->tmp_m);
 		// tmp_m *= SCALE.
 		scaleArray(p->tmp_m, d->SCALE, d->m);
 		x_array = vec_to_nparr(p->tmp_m, &(d->m));
@@ -490,14 +513,14 @@ void accumByAtrans(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 
 	// y += E*tmp_n.
 	if (d->NORMALIZE) {
-		accScaleDiag(d->n, d->E, p->tmp_n, y);
+		accScaleDiag(d->n, p->E, p->tmp_n, y);
 	}
 
 	// AMatrix * A = d->A;
 	// resetTmp(d, p);
-	// accScaleDiag(d->m, d->D, x, p->tmp_m);
+	// accScaleDiag(d->m, p->D, x, p->tmp_m);
 	// _accumByAtrans(d->n, A->x, A->i, A->p, p->tmp_m, p->tmp_n);
-	// accScaleDiag(d->n, d->E, p->tmp_n, z);
+	// accScaleDiag(d->n, p->E, p->tmp_n, z);
 	// for (int i=0; i < d->n; i++) {
 	// 	if (abs(z[i] - y[i]) > 1e-4) {
 	// 		scs_printf("x vals %6f, %6f \n", x[0], x[1]);
@@ -518,7 +541,7 @@ void accumByA(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 	resetTmp(d, p);
 	if (d->NORMALIZE) {
 		// tmp_n = E*x.
-		accScaleDiag(d->n, d->E, x, p->tmp_n);
+		accScaleDiag(d->n, p->E, x, p->tmp_n);
 		// tmp_n *= SCALE.
 		scaleArray(p->tmp_n, d->SCALE, d->n);
 		x_array = vec_to_nparr(p->tmp_n, &(d->n));
@@ -536,7 +559,7 @@ void accumByA(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 
 	// y += D*tmp_m.
 	if (d->NORMALIZE) {
-		accScaleDiag(d->m, d->D, p->tmp_m, y);
+		accScaleDiag(d->m, p->D, p->tmp_m, y);
 	}
 	// AMatrix * A = d->A;
 	// _accumByAtrans(d->m, p->Atx, p->Ati, p->Atp, x, y);

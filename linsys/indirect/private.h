@@ -20,6 +20,9 @@ struct PRIVATE_DATA {
 	/* preconditioning */
 	pfloat * z;
 	pfloat * M;
+	// TODO should D and E be here?
+	pfloat * D; /* row preconditioner */
+	pfloat * E; /* column preconditioner */
 };
 
 #endif

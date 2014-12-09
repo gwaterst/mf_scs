@@ -30,9 +30,6 @@ struct PROBLEM_DATA {
 	idxint NORMALIZE; /* boolean, heuristic data rescaling: 1 */
 	idxint WARM_START; /* boolean, warm start (put initial guess in Sol struct): 0 */
 	idxint EQUIL_STEPS; /* how many steps of equilibration to take: 10 */
-	// TODO should D and E be here?
-	pfloat * D; /* row preconditioner */
-	pfloat * E; /* column preconditioner */
 };
 
 /* contains primal-dual solution arrays */
