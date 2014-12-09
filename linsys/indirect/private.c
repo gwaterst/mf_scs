@@ -67,7 +67,7 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 	for (idxint i = 0; i < d->n; ++i) {
 		E[i] = 1.0;
 	}
-	for (idxint k = 0; k < 10; ++k) {
+	for (idxint k = 0; k < d->EQUIL_STEPS; ++k) {
 		// One iteration of algorithm.
 		resetTmp(d, p);
 		/* Set D = (n/m)|A|diag(E^-1) */
