@@ -43,7 +43,8 @@ pfloat calcNorm(const pfloat * v, idxint len) {
 /* ||v||_1 */
 pfloat calcNorm1(const pfloat * v, idxint len) {
 	pfloat sum = 0.0;
-	for (idxint i = 0; i < len; ++i) {
+	idxint i;
+	for (i = 0; i < len; ++i) {
 		sum += ABS(v[i]);
 	}
 	return sum;
