@@ -198,7 +198,7 @@ static int parseOpts(Data *d, PyObject * opts) {
 		return -1;
 	if (getOptFloatParam("RHO_X", &(d->RHO_X), 1e-3, opts) < 0)
 		return -1;
-	if (getOptIntParam("EQUIL_STEPS", &(d->EQUIL_STEPS), 10, opts) < 0)
+	if (getOptIntParam("EQUIL_STEPS", &(d->EQUIL_STEPS), 1, opts) < 0)
 		return -1;
 	// Amul and ATmul
 	if (getOptFuncParam("Amul", &(d->Amul), NULL, opts) < 0)

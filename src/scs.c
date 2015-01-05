@@ -261,9 +261,10 @@ static idxint converged(Data * d, Work * w, struct residuals * r, idxint iter) {
 	}
 
 	nmdr = calcDualResid(d, w, y, tau, &nmATy);
-	printf("norm b %f\n", calcNorm(b, d->m));
-	printf("norm y %f\n", calcNorm(y, d->m));
 	bTy = innerProd(y, d->b, m);
+	// printf("norm b %f\n", calcNorm(d->b, d->m));
+	// printf("norm y %f\n", calcNorm(y, d->m));
+	// printf("bTy %f\n", bTy);
 	if (d->NORMALIZE) {
 		bTy /= (d->SCALE * w->sc_c * w->sc_b);
 	}

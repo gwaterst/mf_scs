@@ -29,7 +29,7 @@ struct PROBLEM_DATA {
 	idxint VERBOSE; /* boolean, write out progress: 1 */
 	idxint NORMALIZE; /* boolean, heuristic data rescaling: 1 */
 	idxint WARM_START; /* boolean, warm start (put initial guess in Sol struct): 0 */
-	idxint EQUIL_STEPS; /* how many steps of equilibration to take: 10 */
+	idxint EQUIL_STEPS; /* how many steps of equilibration to take: 1 */
 };
 
 /* contains primal-dual solution arrays */

@@ -25,14 +25,24 @@ static pfloat totalSolveTime;
 
 /* contains routines common to direct and indirect sparse solvers */
 
-#define MIN_SCALE 1e-2
-#define MAX_SCALE 1e3
+#define MIN_SCALE 1e-6
+#define MAX_SCALE 1e6
 
 // Vector to numpy array.
 PyObject* vec_to_nparr(const pfloat *data, idxint* length) {
 	return PyArray_SimpleNewFromData(1, length,
 							  		NPY_FLOAT64,
 							  		(void *)data);
+}
+
+/* Ensure val is between MIN_SCALE and MAX_SCALE. */
+static pfloat bound(pfloat val) {
+	if (val < MIN_SCALE) {
+		val = MIN_SCALE;
+	} else if (val > MAX_SCALE) {
+		val = MAX_SCALE;
+	}
+	return val;
 }
 
 // Computes D and E in a matrix free way.
@@ -99,11 +109,7 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 		scaleArray(D,(pfloat) d->m/d->n, d->m);
 
 		for (i = 0; i < d->m; ++i) {
-			if (D[i] < MIN_SCALE) {
-				D[i] = 1;
-			} else if (D[i] > MAX_SCALE) {
-				D[i] = MAX_SCALE;
-			}
+			D[i] = bound(D[i]);
 		}
 		// /* scale the rows with D */
 		// for (i = 0; i < d->n; ++i) {
@@ -131,6 +137,13 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 		arglist = Py_BuildValue("(OOi)", D_array, E_array, Py_True);
 		PyObject_CallObject(d->ATmul, arglist);
 		Py_DECREF(arglist);
+
+		for (i = 0; i < d->n; ++i) {
+			E[i] = bound(E[i]);
+		}
+		// printf("biggest E %f\n", calcNormInf(E, d->n));
+		// invDiag(d->n, E, p->tmp_n);
+		// printf("biggest E^-1 %f\n", calcNormInf(p->tmp_n, d->n));
 		// scaleArray(E, (pfloat)d->m/d->n, d->n);
 	}
 	scs_free(boundaries);
@@ -421,21 +434,24 @@ static idxint pcg(Data *d, Priv * pr, const pfloat * s, pfloat * b, idxint max_i
 
 /*  y += diag^-1*x */
 static void accScaleDiag(idxint len, const pfloat *diag, const pfloat * x, pfloat * y) {
-	for (idxint i = 0; i < len; i++) {
+	idxint i;
+	for (i = 0; i < len; i++) {
 		y[i] += x[i]/diag[i];
 	}
 }
 
 /*  x = diag^-1*x */
 static void scaleDiag(idxint len, const pfloat *diag, pfloat * x) {
-	for (idxint i = 0; i < len; i++) {
-		x[i] /= diag[i];
+	idxint i;
+	for (i = 0; i < len; i++) {
+		x[i] = x[i]/diag[i];
 	}
 }
 
 /*  x = diag^-1*1 */
 static void invDiag(idxint len, const pfloat *diag, pfloat * x) {
-	for (idxint i = 0; i < len; i++) {
+	idxint i;
+	for (i = 0; i < len; i++) {
 		x[i] = 1.0/diag[i];
 	}
 }
