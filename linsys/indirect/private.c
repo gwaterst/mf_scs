@@ -79,8 +79,8 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 	memset(D, 1, d->m * sizeof(pfloat));
 	memset(E, 1, d->n * sizeof(pfloat));
 
-	idxint k;
-	for (k = 0; k < d->EQUIL_STEPS; ++k) {
+	idxint steps;
+	for (steps = 0; steps < d->EQUIL_STEPS; ++steps) {
 		// One iteration of algorithm.
 		resetTmp(d, p);
 		/* Set D = (n/m)|A|diag(E^-1) */
