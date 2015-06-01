@@ -40,7 +40,7 @@ if blas_info and lapack_info and USE_LAPACK:
     extra_compile_args += blas_info.pop('extra_compile_args', []) + lapack_info.pop('extra_compile_args', [])
 
 _scs_direct = Extension(
-                    name='_scs_direct',
+                    name='_mat_free_scs_direct',
                     sources=sources + glob(rootDir + 'linsys/direct/*.c') + glob(rootDir + 'linsys/direct/external/*.c'),
                     define_macros=define_macros,
                     include_dirs=include_dirs + [rootDir + 'linsys/direct/', rootDir + 'linsys/direct/external/'],
@@ -50,7 +50,7 @@ _scs_direct = Extension(
                     )
 
 _scs_indirect = Extension(
-                    name='_scs_indirect',
+                    name='_mat_free_scs_indirect',
                     sources=sources + glob(rootDir + 'linsys/indirect/*.c'),
                     define_macros=define_macros + [('INDIRECT', None)],
                     include_dirs=include_dirs + [rootDir + 'linsys/indirect/'],
@@ -58,13 +58,13 @@ _scs_indirect = Extension(
                     extra_link_args=extra_link_args,
                     extra_compile_args=extra_compile_args
                      )
-setup(name='scs',
+setup(name='mat_free_scs',
         version='10.0.0',
         author = 'Brendan O\'Donoghue',
         author_email = 'bodonoghue85@gmail.com',
         url = 'http://github.com/cvxgrp/scs',
         description='scs: splittling cone solver',
-        py_modules=['scs'],
+        py_modules=['mat_free_scs'],
         ext_modules=[_scs_direct, _scs_indirect],
         requires=["numpy (>= 1.7)","scipy (>= 1.2)"],
         license = "GPLv3",

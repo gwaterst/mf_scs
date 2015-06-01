@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-import _scs_direct
-import _scs_indirect
+import _mat_free_scs_direct
+import _mat_free_scs_indirect
 from warnings import warn
 from scipy import sparse
 
@@ -43,7 +43,9 @@ def solve(probdata, cone, **opts):
     if sparse.issparse(c):
         c = c.toDense()
 
-    m, n = A.shape
+    # Set m and n based on b and c rather than A.
+    m = b.size
+    n = c.size
 
     Adata, Aindices, Acolptr = A.data, A.indices, A.indptr
     # Convert keys to upper case.
@@ -53,9 +55,9 @@ def solve(probdata, cone, **opts):
     opts = new_opts
     if opts.get("USE_INDIRECT", False):
         # HACK transfer from probdata to opts.
-        for key in ["Amul", "ATmul"]:
+        for key in ["Amul", "ATmul", "getDE", "getM"]:
             if key in probdata:
                 opts[key] = probdata[key]
-        return _scs_indirect.csolve((m, n), Adata, Aindices, Acolptr, b, c, cone, opts, warm)
+        return _mat_free_scs_indirect.csolve((m, n), Adata, Aindices, Acolptr, b, c, cone, opts, warm)
     else:
-        return _scs_direct.csolve((m, n), Adata, Aindices, Acolptr, b, c, cone, opts, warm)
+        return _mat_free_scs_direct.csolve((m, n), Adata, Aindices, Acolptr, b, c, cone, opts, warm)

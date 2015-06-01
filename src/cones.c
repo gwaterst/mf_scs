@@ -507,6 +507,12 @@ void projectsdc(pfloat *X, idxint n, idxint iter) {
 		BLAS(axpy)(&nb, &oned, &(X[i]), &nb, &(Xs[i * n]), &one);
 	}
 	vupper = calcNorm(Xs, nb * nb);
+	// For some reason syevr crashes if vupper == 0.
+	if (vupper == 0) {
+		memcpy(X, Xs, nb * nb * sizeof(pfloat));
+		return;
+	}
+	// printf("vupper=%f\n", vupper);
 	/* Solve eigenproblem, reuse workspaces */
 	BLAS(syevr)("Vectors", "VInterval", "Upper", &nb, Xs, &nb, &zero, &vupper,
 			NULL, NULL, &eigTol, &m, e, Z, &nb, NULL, work, &lwork, iwork, &liwork, &info);

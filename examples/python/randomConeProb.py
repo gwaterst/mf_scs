@@ -10,30 +10,30 @@ def main():
     solveFeasible()
     solveInfeasible()
     solveUnbounded()
-    
+
 def solveFeasible():
     # cone:
     K = {'f':10, 'l':15, 'q':[5, 10, 0 ,1], 's':[3, 4, 0, 0, 1], 'ep':10, 'ed':10}
     K = validateCone(K)
-    
+
     density = 0.01  # A matrix density
     m = getConeDims(K)
     n = round(m / 3)
     params = {'EPS':1e-3, 'NORMALIZE':1, 'SCALE':5, 'CG_RATE':1.5}
-      
+
     z = randn(m,)
     z = symmetrizeSDP(z, K)  # for SD cones
     y = proj_dual_cone(z, K)  # y = s - z;
     s = y - z  # s = proj_cone(z,K)
-    
+
     A = sparse.rand(m, n, density, format='csc')
     A.data = randn(A.nnz)
     x = randn(n)
     c = -transpose(A).dot(y)
     b = A.dot(x) + s
-    
+
     data = {'A': A, 'b': b, 'c': c}
-    
+
     # indirect
     sol_i = scs.solve(data, K, params, USE_INDIRECT=True)
     xi = sol_i['x']
@@ -50,35 +50,35 @@ def solveFeasible():
     print '% error = ', (dot(c, xd) - dot(c, x)) / dot(c, x)
     print 'b\'y*  = ', dot(b, y)
     print '% error = ', (dot(b, yd) - dot(b, y)) / dot(b, y)
-    
+
 def solveInfeasible():
     K = {'f':10, 'l':15, 'q':[5, 10], 's':[3, 4], 'ep':10, 'ed':10}
     K = validateCone(K)
     m = getConeDims(K)
     n = round(m / 3)
     params = {'EPS':1e-4, 'NORMALIZE':1, 'SCALE':0.5, 'CG_RATE':1.5}
-    
+
     z = randn(m,)
     z = symmetrizeSDP(z, K)  # for SD cones
     y = proj_dual_cone(z, K)  # y = s - z;
     A = randn(m, n)
     A = A - outer(y, transpose(A).dot(y)) / linalg.norm(y) ** 2  # dense...
-    
+
     b = randn(m);
     b = -b / dot(b, y);
-    
+
     data = {'A':sparse.csc_matrix(A), 'b':b, 'c':randn(n)}
-    
+
     sol_i = scs.solve(data, K, params, USE_INDIRECT=True)
     sol_d = scs.solve(data, K, params)
-    
+
 def solveUnbounded():
     K = {'f':10, 'l':15, 'q':[5, 10], 's':[3, 4], 'ep':10, 'ed':10}
     K = validateCone(K)
     m = getConeDims(K)
     n = round(m / 3)
     params = {'EPS':1e-4, 'NORMALIZE':1, 'SCALE':0.5, 'CG_RATE':1.5}
-    
+
     z = randn(m);
     z = symmetrizeSDP(z, K);  # for SD cones
     s = proj_cone(z, K);
@@ -87,9 +87,9 @@ def solveUnbounded():
     A = A - outer(s + A.dot(x), x) / linalg.norm(x) ** 2;  # dense...
     c = randn(n);
     c = -c / dot(c, x);
-    
+
     data = {'A':sparse.csc_matrix(A), 'b':randn(m), 'c':c}
-    
+
     sol_i = scs.solve(data, K, params, USE_INDIRECT=True)
     sol_d = scs.solve(data, K, params)
 
@@ -100,7 +100,7 @@ def validateCone(K):
     if (type(K['s']) == type(0)):
         K['s'] = [K['s']]
     return K
-    
+
 def pos(x):
     return (x + abs(x)) / 2
 
@@ -108,7 +108,7 @@ def getConeDims(K):
     l = K['f'] + K['l']
     for i in range(0, len(K['q'])):
         l = l + K['q'][i];
-    
+
     for i in range(0, len(K['s'])):
         l = l + K['s'][i] ** 2;
 
@@ -154,7 +154,7 @@ def proj_soc(tt):
         return
     elif len(tt) == 1:
         return pos(tt)
-    
+
     v1 = tt[0]
     v2 = tt[1:];
     if linalg.norm(v2) <= -v1:
@@ -175,7 +175,7 @@ def proj_sdp(z, n):
         return pos(z)
     z = reshape(z, (n, n), order='F')
     zs = (z + transpose(z)) / 2
-    
+
     w, v = linalg.eig(zs)  # cols of v are eignvectors
     w = pos(w)
     z = dot(v, dot(diag(w), transpose(v)))
@@ -253,7 +253,7 @@ def newton_exp_onz(rho, y_hat, z_hat, w):
     for iter in range(0, 100):
         f = (1 / rho ** 2) * t * (t + z_hat) - y_hat / rho + log(t / rho) + 1
         fp = (1 / rho ** 2) * (2 * t + z_hat) + 1 / t
-    
+
         t = t - f / fp
         if t <= -z_hat:
             t = -z_hat

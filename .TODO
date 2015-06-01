@@ -1,2 +1,0 @@
-add profiling
-NOTE: higher d->SCALE makes pri resid go down faster, lower makes dual resid go down faster

@@ -192,9 +192,9 @@ static int parseOpts(Data *d, PyObject * opts) {
 		return -1;
 	if (getOptFloatParam("EPS", &(d->EPS), 1e-3, opts) < 0)
 		return -1;
-	if (getOptFloatParam("CG_RATE", &(d->CG_RATE), 1.5, opts) < 0)
+	if (getOptFloatParam("CG_RATE", &(d->CG_RATE), 2.0, opts) < 0)
 		return -1;
-	if (getOptFloatParam("ALPHA", &(d->ALPHA), 1.8, opts) < 0)
+	if (getOptFloatParam("ALPHA", &(d->ALPHA), 1.5, opts) < 0)
 		return -1;
 	if (getOptFloatParam("RHO_X", &(d->RHO_X), 1e-3, opts) < 0)
 		return -1;
@@ -204,6 +204,20 @@ static int parseOpts(Data *d, PyObject * opts) {
 	if (getOptFuncParam("Amul", &(d->Amul), NULL, opts) < 0)
 		return -1;
 	if (getOptFuncParam("ATmul", &(d->ATmul), NULL, opts) < 0)
+		return -1;
+	if (getOptFuncParam("getDE", &(d->getDE), NULL, opts) < 0)
+		return -1;
+	if (getOptFuncParam("getM", &(d->getM), NULL, opts) < 0)
+		return -1;
+	if (getOptIntParam("EQUIL_P", &(d->EQUIL_P), NULL, opts) < 0)
+		return -1;
+	if (getOptFloatParam("EQUIL_GAMMA", &(d->EQUIL_GAMMA), 1e-8, opts) < 0)
+		return -1;
+	if (getOptIntParam("STOCH", &(d->STOCH), NULL, opts) < 0)
+		return -1;
+	if (getOptIntParam("SAMPLES", &(d->SAMPLES), 200, opts) < 0)
+		return -1;
+	if (getOptIntParam("PRECOND", &(d->PRECOND), NULL, opts) < 0)
 		return -1;
 	return 0;
 }
@@ -307,12 +321,12 @@ static PyObject *csolve(PyObject* self, PyObject *args, PyObject *kwargs) {
 		return NULL;
 	}
 
-	if (d->m < 0) {
+	if (d->m <= 0) {
 		PyErr_SetString(PyExc_ValueError, "m must be a positive integer");
 		return NULL;
 	}
 
-	if (d->n < 0) {
+	if (d->n <= 0) {
 		PyErr_SetString(PyExc_ValueError, "n must be a positive integer");
 		return NULL;
 	}
@@ -419,8 +433,9 @@ static PyObject *csolve(PyObject* self, PyObject *args, PyObject *kwargs) {
 	veclen[0] = d->m;
 	PyObject *s = PyArray_SimpleNewFromData(1, veclen, NPY_DOUBLE, sol.s);
 
-	PyObject *infoDict = Py_BuildValue("{s:l,s:l,s:d,s:d,s:d,s:d,s:d,s:d,s:d,s:s}", "statusVal",
-			(idxint) info.statusVal, "iter", (idxint) info.iter, "pobj", (pfloat) info.pobj, "dobj", (pfloat) info.dobj,
+	PyObject *infoDict = Py_BuildValue("{s:l,s:l,s:l,s:d,s:d,s:d,s:d,s:d,s:d,s:d,s:s}", "statusVal",
+			(idxint) info.statusVal, "iter", (idxint) info.iter, "cgIter", (idxint) info.cgIter,
+			"pobj", (pfloat) info.pobj, "dobj", (pfloat) info.dobj,
 			"resPri", (pfloat) info.resPri, "resDual", (pfloat) info.resDual, "relGap", (pfloat) info.relGap,
 			"solveTime", (pfloat) (info.solveTime / 1e3), "setupTime", (pfloat) (info.setupTime / 1e3), "status",
 			info.status);
@@ -465,9 +480,9 @@ static PyObject* moduleinit(void) {
 	m = PyModule_Create(&moduledef);
 #else
 #ifdef INDIRECT
-	m = Py_InitModule("_scs_indirect", scsMethods);
+	m = Py_InitModule("_mat_free_scs_indirect", scsMethods);
 #else
-	m = Py_InitModule("_scs_direct", scsMethods);
+	m = Py_InitModule("_mat_free_scs_direct", scsMethods);
 #endif
 #endif
 
@@ -484,9 +499,9 @@ static PyObject* moduleinit(void) {
 #if PY_MAJOR_VERSION >= 3
 PyMODINIT_FUNC
 #ifdef INDIRECT
-PyInit__scs_indirect(void)
+PyInit_mat_free_scs_indirect(void)
 #else
-PyInit__scs_direct(void)
+PyInit_mat_free_scs_direct(void)
 #endif
 {
 	import_array(); /* for numpy arrays */
@@ -495,9 +510,9 @@ PyInit__scs_direct(void)
 #else
 PyMODINIT_FUNC
 #ifdef INDIRECT
-init_scs_indirect(void)
+init_mat_free_scs_indirect(void)
 #else
-init_scs_direct(void)
+init_mat_free_scs_direct(void)
 #endif
 {
 	import_array(); /* for numpy arrays */

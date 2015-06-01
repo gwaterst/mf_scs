@@ -1,9 +1,0 @@
-nguage: c
-compiler:
-  - gcc
-  - clang
-script: make && out/demo_direct && out/demo_indirect
-notifications:
-  email:
-  - bodonoghue85@gmail.com
-

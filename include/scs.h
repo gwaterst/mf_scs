@@ -17,12 +17,13 @@ struct PROBLEM_DATA {
 
 	AMatrix * A; /* A is supplied in data format specified by linsys solver */
 	pfloat * b, *c; /* dense arrays for b (size m), c (size n) */
-	PyObject * Amul, * ATmul; /* Functions for multiplying by A and A' */
+	PyObject * Amul, * ATmul, * getDE, * getM; /* Functions for multiplying by A and A'
+	and for getting preconditioners. */
 
 	/* other input parameters: default suggested input */
 	idxint MAX_ITERS; /* maximum iterations to take: 2500 */
 	pfloat EPS; /* convergence tolerance: 1e-3 */
-	pfloat ALPHA; /* relaxation parameter: 1.8 */
+	pfloat ALPHA; /* relaxation parameter: 1.5 */
 	pfloat RHO_X; /* x equality constraint scaling: 1e-3 */
 	pfloat SCALE; /* if normalized, rescales by this factor: 5 */
 	pfloat CG_RATE; /* for indirect, tolerance goes down like (1/iter)^CG_RATE: 1.5 */
@@ -30,6 +31,11 @@ struct PROBLEM_DATA {
 	idxint NORMALIZE; /* boolean, heuristic data rescaling: 1 */
 	idxint WARM_START; /* boolean, warm start (put initial guess in Sol struct): 0 */
 	idxint EQUIL_STEPS; /* how many steps of equilibration to take: 1 */
+	idxint EQUIL_P;  /* Which Lp norm equilibration used? */
+	pfloat EQUIL_GAMMA; /* Regularization parameter for equilibration: 1e-8 */
+	idxint STOCH; /* Use random approximation of L2 norms? */
+	idxint SAMPLES; /* Number of samples for approximation: 200 */
+	idxint PRECOND; /* boolean, use preconditioner for CG? */
 };
 
 /* contains primal-dual solution arrays */
@@ -40,6 +46,7 @@ struct SOL_VARS {
 /* contains terminating information */
 struct INFO {
 	idxint iter; /* number of iterations taken */
+	pfloat cgIter; /* number of CG iterations taken */
 	char status[32]; /* status string, e.g. 'Solved' */
 	idxint statusVal; /* status as idxint, defined below */
 	pfloat pobj; /* primal objective */
@@ -73,7 +80,7 @@ idxint scs(Data * d, Cone * k, Sol * sol, Info * info);
 struct WORK {
 	pfloat *u, *v, *u_t, *u_prev;
 	pfloat *h, *g, *pr, *dr;
-	pfloat gTh, sc_b, sc_c, nm_b, nm_c, meanNormRowA;
+	pfloat gTh, sc_b, sc_c, nm_b, nm_c, meanNormRowA, meanNormColA;
 	pfloat *D, *E; /* for normalization */
 	Priv * p;
 };

@@ -154,7 +154,7 @@ void freePriv(Priv * p) {
 	}
 }
 
-void solveLinSys(Data * d, Priv * p, pfloat * b, const pfloat * s, idxint iter) {
+void solveLinSys(Data * d, Priv * p, pfloat * b, const pfloat * s, idxint iter, idxint * cgIters) {
 	/* returns solution to linear system */
 	/* Ax = b with solution stored in b */
 #ifdef EXTRAVERBOSE

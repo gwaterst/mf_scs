@@ -28,7 +28,7 @@ static void printSummary(idxint i, struct residuals *r, timer * solveTimer);
 static void printHeader(Data * d, Work * w, Cone * k);
 static void printFooter(Data * d, Work * w, Info * info);
 static void freeWork(Work * w);
-static void projectLinSys(Data * d, Work * w, idxint iter);
+static void projectLinSys(Data * d, Work * w, idxint iter, idxint * cgIters);
 static void failureDefaultReturn(Data * d, Sol * sol, Info * info);
 static void warmStartVars(Data * d, Work * w, Sol * sol);
 static void coldStartVars(Data * d, Work * w);
@@ -87,6 +87,7 @@ void scs_finish(Data * d, Work * w) {
 
 idxint scs_solve(Work * w, Data * d, Cone * k, Sol * sol, Info * info) {
 	idxint i;
+	idxint cgIter = 0;
 	timer solveTimer;
 	struct residuals r;
 	if (!d || !k || !sol || !info || !w || !d->b || !d->c) {
@@ -102,7 +103,7 @@ idxint scs_solve(Work * w, Data * d, Cone * k, Sol * sol, Info * info) {
 	for (i = 0; i < d->MAX_ITERS; ++i) {
 		memcpy(w->u_prev, w->u, (d->n + d->m + 1) * sizeof(pfloat));
 
-		projectLinSys(d, w, i);
+		projectLinSys(d, w, i, &cgIter);
 		projectCones(d, w, k, i);
 		updateDualVars(d, w);
 
@@ -119,6 +120,7 @@ idxint scs_solve(Work * w, Data * d, Cone * k, Sol * sol, Info * info) {
 	setSolution(d, w, sol, info);
 	/* populate info */
 	info->iter = i;
+	info->cgIter = cgIter;
 	getInfo(d, w, sol, info);
 	info->solveTime = tocq(&solveTimer);
 
@@ -146,7 +148,7 @@ static void updateWork(Data * d, Work * w, Sol * sol) {
 	memcpy(w->h, d->c, n * sizeof(pfloat));
 	memcpy(&(w->h[d->n]), d->b, m * sizeof(pfloat));
 	memcpy(w->g, w->h, (n + m) * sizeof(pfloat));
-	solveLinSys(d, w->p, w->g, NULL, -1);
+	solveLinSys(d, w->p, w->g, NULL, -1, NULL);
 	scaleArray(&(w->g[d->n]), -1, m);
 	w->gTh = innerProd(w->h, w->g, n + m);
 }
@@ -455,7 +457,7 @@ static Work * initWork(Data *d, Cone * k) {
 	return w;
 }
 
-static void projectLinSys(Data * d, Work * w, idxint iter) {
+static void projectLinSys(Data * d, Work * w, idxint iter, idxint * cgIters) {
 	/* ut = u + v */
 	idxint n = d->n, m = d->m, l = n + m + 1;
 	memcpy(w->u_t, w->u, l * sizeof(pfloat));
@@ -467,7 +469,7 @@ static void projectLinSys(Data * d, Work * w, idxint iter) {
 	addScaledArray(w->u_t, w->h, l - 1, -innerProd(w->u_t, w->g, l - 1) / (w->gTh + 1));
 	scaleArray(&(w->u_t[n]), -1, m);
 
-	solveLinSys(d, w->p, w->u_t, w->u, iter);
+	solveLinSys(d, w->p, w->u_t, w->u, iter, cgIters);
 
 	w->u_t[l - 1] += innerProd(w->u_t, w->h, l - 1);
 }
