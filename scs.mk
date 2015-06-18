@@ -6,7 +6,7 @@ ifeq ($(UNAME), Linux)
 LDFLAGS = -lm -lrt
 else
 # we're on apple, no need to link rt library
-LDFLAGS = -lm 
+LDFLAGS = -lm
 endif
 
 CFLAGS = -g -Wall -pedantic -O3 -funroll-loops -Wstrict-prototypes -Iinclude
@@ -45,7 +45,7 @@ endif
 # NB: point the libraries to the locations where
 # you have blas and lapack installed
 
-USE_LAPACK = 0
+USE_LAPACK = 1
 
 ifneq ($(USE_LAPACK), 0)
   # edit these for your setup:

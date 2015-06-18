@@ -1,8 +1,9 @@
-#include <Python.h>
-#include "numpy/arrayobject.h"
+// #include <Python.h>
+// #include "numpy/arrayobject.h"
 #include "private.h"
 #include "../common.h"
 #include "linAlg.h"
+#include <stdlib.h>
 
 #define CG_BEST_TOL 1e-7
 #define PRINT_INTERVAL 100
@@ -30,12 +31,12 @@ static pfloat totalSolveTime;
 #define MIN_SCALE (1e-3)
 #define MAX_SCALE (1e3)
 
-// Vector to numpy array.
-PyObject* vec_to_nparr(const pfloat *data, idxint* length) {
-	return PyArray_SimpleNewFromData(1, length,
-							  		NPY_FLOAT64,
-							  		(void *)data);
-}
+// // Vector to numpy array.
+// PyObject* vec_to_nparr(const pfloat *data, idxint* length) {
+// 	return PyArray_SimpleNewFromData(1, length,
+// 							  		NPY_FLOAT64,
+// 							  		(void *)data);
+// }
 
 /* Ensure val is between MIN_SCALE and MAX_SCALE. */
 static pfloat bound(pfloat val, pfloat min_scale, pfloat max_scale) {
@@ -64,12 +65,51 @@ static pfloat bound(pfloat val, pfloat min_scale, pfloat max_scale) {
 // 	}
 // }
 
+// Populates s with random +1, -1 entries.
+void gen_rand_s(pfloat *s, idxint s_len) {
+	idxint i;
+	for (i = 0; i < s_len; i++) {
+		s[i] = (pfloat) 2*(rand() % 2) - 1;
+	}
+}
+
+// Randomized row norm squared for AE.
+// Written to output (assumed length m and zeroed out).
+void rand_rnsAE(Data * d, pfloat *E, pfloat *output) {
+	idxint i, j;
+	for (i = 0; i < d->SAMPLES; i++) {
+		gen_rand_s(d->dag_input, d->n);
+		scaleDiag(d->n, E, d->dag_input);
+		d->Amul(d->fao_dag);
+		for (j = 0; j < d->m; ++j) {
+			output[j] += d->dag_output[j]*d->dag_output[j]/((pfloat) d->SAMPLES);
+		}
+	}
+}
+
+// Randomized row norm squared for A^TD.
+// Written to output (assumed length m and zeroed out).
+void rand_rnsATD(Data * d, pfloat *D, pfloat *output) {
+	idxint i, j;
+	for (i = 0; i < d->SAMPLES; i++) {
+		gen_rand_s(d->dag_output, d->n);
+		scaleDiag(d->n, D, d->dag_output);
+		d->ATmul(d->fao_dag);
+		for (j = 0; j < d->m; ++j) {
+			output[j] += d->dag_input[j]*d->dag_input[j]/((pfloat) d->SAMPLES);
+		}
+	}
+}
+
 // Computes D and E in a matrix free way.
 void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
-	import_array();
-	PyObject * E_array;
-	PyObject * D_array;
-	PyObject * arglist;
+	// Probably shouldn't go here TODO.
+	// srand( time(NULL) );
+	srand( 1 );
+	// import_array();
+	// PyObject * E_array;
+	// PyObject * D_array;
+	// PyObject * arglist;
 	pfloat * D = scs_calloc(d->m, sizeof(pfloat));
 	pfloat * E = scs_calloc(d->n, sizeof(pfloat));
 	idxint i, j, count, delta, *boundaries;//, c1, c2;
@@ -113,15 +153,21 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 	pfloat beta = 1.0;
 	for (steps = 0; steps < d->EQUIL_STEPS; ++steps) {
 		// One iteration of algorithm.
-		resetTmp(d, p);
-		E_array = vec_to_nparr(E, &(d->n));
-		D_array = vec_to_nparr(D, &(d->m));
+		// resetTmp(d, p);
+		// E_array = vec_to_nparr(E, &(d->n));
+		// D_array = vec_to_nparr(D, &(d->m));
+
 		/* Set D = alpha*(SCALE*|A|^2diag(E)^2 + alpha^2*gamma*1)^{-1/2}*/
-		 // Set D = (|A|diag(E))^-1
+
+		// Set D = (|A|diag(E))^-1
+		// memset(D, 0, d->m * sizeof(pfloat));
+		// arglist = Py_BuildValue("(OOiii)", E_array, D_array, d->EQUIL_P, d->STOCH, d->SAMPLES);
+		// PyObject_CallObject(d->Amul, arglist);
+		// Py_DECREF(arglist);
+
+		// TODO do randomized equil.
 		memset(D, 0, d->m * sizeof(pfloat));
-		arglist = Py_BuildValue("(OOiii)", E_array, D_array, d->EQUIL_P, d->STOCH, d->SAMPLES);
-		PyObject_CallObject(d->Amul, arglist);
-		Py_DECREF(arglist);
+		rand_rnsAE(d, E, D);
 
 		/* mean of norms of rows across each cone  */
 		// TODO this is wrong, should be sqrt of sum of all
@@ -171,12 +217,14 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 		// }
 		// /* Set E = beta*(SCALE*|A^T|^2diag(D)^2 + gamma*beta^2*1)^{-1/2} */
 		/* Set E = (|A^T|diag(D))^-1 */
-		E_array = vec_to_nparr(E, &(d->n));
-		D_array = vec_to_nparr(D, &(d->m));
+		// E_array = vec_to_nparr(E, &(d->n));
+		// D_array = vec_to_nparr(D, &(d->m));
+		// memset(E, 0, d->n * sizeof(pfloat));
+		// arglist = Py_BuildValue("(OOiii)", D_array, E_array, d->EQUIL_P, d->STOCH, d->SAMPLES);
+		// PyObject_CallObject(d->ATmul, arglist);
+		// Py_DECREF(arglist);
 		memset(E, 0, d->n * sizeof(pfloat));
-		arglist = Py_BuildValue("(OOiii)", D_array, E_array, d->EQUIL_P, d->STOCH, d->SAMPLES);
-		PyObject_CallObject(d->ATmul, arglist);
-		Py_DECREF(arglist);
+		rand_rnsATD(d, D, E);
 		// // E *= SCALE.
 		// scaleArray(E, d->SCALE, d->n);
 		// E += beta^2*gamma.
@@ -222,11 +270,12 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 
 	// meanNormRowA = D ||A||_2 E1/m
 	resetTmp(d, p);
-	E_array = vec_to_nparr(E, &(d->n));
-	D_array = vec_to_nparr(p->tmp_m, &(d->m));
-	arglist = Py_BuildValue("(OOiii)", E_array, D_array, d->EQUIL_P, d->STOCH, d->SAMPLES);
-	PyObject_CallObject(d->Amul, arglist);
-	Py_DECREF(arglist);
+	// E_array = vec_to_nparr(E, &(d->n));
+	// D_array = vec_to_nparr(p->tmp_m, &(d->m));
+	// arglist = Py_BuildValue("(OOiii)", E_array, D_array, d->EQUIL_P, d->STOCH, d->SAMPLES);
+	// PyObject_CallObject(d->Amul, arglist);
+	// Py_DECREF(arglist);
+	rand_rnsAE(d, E, p->tmp_m);
 	// // Scale by SCALE.
 	// scaleArray(p->tmp_m, d->SCALE, d->m);
 	// Scale by D.
@@ -241,12 +290,13 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 	/* calculate mean of col norms of A */
 	// meanNormColA = E ||A^T||_2 D1/m
 	if (d->EQUIL_STEPS == 0) {
-		resetTmp(d, p);
-		E_array = vec_to_nparr(p->tmp_n, &(d->n));
-		D_array = vec_to_nparr(D, &(d->m));
-		arglist = Py_BuildValue("(OOiii)", D_array, E_array, d->EQUIL_P, d->STOCH, d->SAMPLES);
-		PyObject_CallObject(d->ATmul, arglist);
-		Py_DECREF(arglist);
+		// resetTmp(d, p);
+		// E_array = vec_to_nparr(p->tmp_n, &(d->n));
+		// D_array = vec_to_nparr(D, &(d->m));
+		// arglist = Py_BuildValue("(OOiii)", D_array, E_array, d->EQUIL_P, d->STOCH, d->SAMPLES);
+		// PyObject_CallObject(d->ATmul, arglist);
+		// Py_DECREF(arglist);
+		rand_rnsATD(d, D, p->tmp_n);
 		// // Scale by SCALE.
 		// scaleArray(p->tmp_m, d->SCALE, d->m);
 		// Scale by D.
@@ -322,8 +372,8 @@ void getPreconditioner(Data *d, Priv *p) {
 	// import_array();
 	idxint i;
 	pfloat * M = p->M;
-	PyObject* E_array;
-	PyObject* D_array;
+	// PyObject* E_array;
+	// PyObject* D_array;
 
 #ifdef EXTRAVERBOSE
 	scs_printf("getting pre-conditioner\n");
@@ -629,30 +679,32 @@ void accumByAtrans(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 	// // Create arrays for x, y.
 	// pfloat *z = malloc(sizeof(pfloat)*(d->n));
 	// memcpy(z, y, sizeof(pfloat)*(d->n));
-	resetTmp(d, p);
-	PyObject* x_array;
-	PyObject* y_array;
+	// resetTmp(d, p);
+	memset(p->tmp_m, 0, d->m * sizeof(pfloat));
+	// PyObject* x_array;
+	// PyObject* y_array;
 	if (d->NORMALIZE) {
 		// tmp_m = D*x.
 		accScaleDiag(d->m, p->D, x, p->tmp_m);
 		// tmp_m *= SCALE.
 		scaleArray(p->tmp_m, d->SCALE, d->m);
-		x_array = vec_to_nparr(p->tmp_m, &(d->m));
-		y_array = vec_to_nparr(p->tmp_n, &(d->n));
+		// x_array = vec_to_nparr(p->tmp_m, &(d->m));
+		// y_array = vec_to_nparr(p->tmp_n, &(d->n));
 	} else {
 		// tmp_m += SCALE*x.
 		addScaledArray(p->tmp_m, x, d->SCALE, d->m);
-		x_array = vec_to_nparr(p->tmp_m, &(d->m));
-		y_array = vec_to_nparr(y, &(d->n));
+		// x_array = vec_to_nparr(p->tmp_m, &(d->m));
+		// y_array = vec_to_nparr(y, &(d->n));
 	}
-	PyObject *arglist;
-	arglist = Py_BuildValue("(OO)", x_array, y_array);
-	PyObject_CallObject(d->ATmul, arglist);
-	Py_DECREF(arglist);
-
+	// PyObject *arglist;
+	// arglist = Py_BuildValue("(OO)", x_array, y_array);
+	// PyObject_CallObject(d->ATmul, arglist);
+	// Py_DECREF(arglist);
+	memcpy(d->dag_output, p->tmp_m, d->m*sizeof(pfloat));
+	d->ATmul(d->fao_dag);
 	// y += E*tmp_n.
 	if (d->NORMALIZE) {
-		accScaleDiag(d->n, p->E, p->tmp_n, y);
+		accScaleDiag(d->n, p->E, d->dag_input, y);
 	}
 
 	// AMatrix * A = d->A;
@@ -675,30 +727,33 @@ void accumByA(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 	// // Create arrays for x, y.
 	// // pfloat *z = malloc(sizeof(pfloat)*(d->m));
 	// // memcpy(z, y, sizeof(pfloat)*(d->m));
-	PyObject* x_array;
-	PyObject* y_array;
-	resetTmp(d, p);
+	// PyObject* x_array;
+	// PyObject* y_array;
+	// resetTmp(d, p);
+	memset(p->tmp_n, 0, d->n * sizeof(pfloat));
 	if (d->NORMALIZE) {
 		// tmp_n = E*x.
 		accScaleDiag(d->n, p->E, x, p->tmp_n);
 		// tmp_n *= SCALE.
 		scaleArray(p->tmp_n, d->SCALE, d->n);
-		x_array = vec_to_nparr(p->tmp_n, &(d->n));
-		y_array = vec_to_nparr(p->tmp_m, &(d->m));
+		// x_array = vec_to_nparr(p->tmp_n, &(d->n));
+		// y_array = vec_to_nparr(p->tmp_m, &(d->m));
 	} else {
 		// tmp_n += SCALE*x.
 		addScaledArray(p->tmp_n, x, d->SCALE, d->n);
-		x_array = vec_to_nparr(p->tmp_n, &(d->n));
-		y_array = vec_to_nparr(y, &(d->m));
+		// x_array = vec_to_nparr(p->tmp_n, &(d->n));
+		// y_array = vec_to_nparr(y, &(d->m));
 	}
-	PyObject *arglist;
-	arglist = Py_BuildValue("(OO)", x_array, y_array);
-	PyObject_CallObject(d->Amul, arglist);
-	Py_DECREF(arglist);
+	// PyObject *arglist;
+	// arglist = Py_BuildValue("(OO)", x_array, y_array);
+	// PyObject_CallObject(d->Amul, arglist);
+	// Py_DECREF(arglist);
+	memcpy(d->dag_input, p->tmp_n, d->n*sizeof(pfloat));
+	d->Amul(d->fao_dag);
 
 	// y += D*tmp_m.
 	if (d->NORMALIZE) {
-		accScaleDiag(d->m, p->D, p->tmp_m, y);
+		accScaleDiag(d->m, p->D, d->dag_output, y);
 	}
 	// AMatrix * A = d->A;
 	// _accumByAtrans(d->m, p->Atx, p->Ati, p->Atp, x, y);

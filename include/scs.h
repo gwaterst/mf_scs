@@ -1,7 +1,7 @@
 #ifndef SCS_H_GUARD
 #define SCS_H_GUARD
 
-#include <Python.h>
+// #include <Python.h>
 #include "glbopts.h"
 #include <string.h>
 #include <math.h>
@@ -17,8 +17,14 @@ struct PROBLEM_DATA {
 
 	AMatrix * A; /* A is supplied in data format specified by linsys solver */
 	pfloat * b, *c; /* dense arrays for b (size m), c (size n) */
-	PyObject * Amul, * ATmul, * getDE, * getM; /* Functions for multiplying by A and A'
-	and for getting preconditioners. */
+	// PyObject * Amul, * ATmul, * getDE, * getM;
+	// Functions for multiplying by A and A'
+	// and for getting preconditioners.
+	void (*Amul)(void *);
+	void (*ATmul)(void *);
+	void *fao_dag; // The FAO_DAG.
+	pfloat *dag_input;
+	pfloat *dag_output;
 
 	/* other input parameters: default suggested input */
 	idxint MAX_ITERS; /* maximum iterations to take: 2500 */
