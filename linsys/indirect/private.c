@@ -238,24 +238,26 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 	// w->meanNormRowA = alpha;
 	printf("w->meanNormRowA=%f\n", w->meanNormRowA);
 
-	// /* calculate mean of col norms of A */
-	// // meanNormColA = E ||A^T||_2 D1/m
-	// resetTmp(d, p);
-	// E_array = vec_to_nparr(p->tmp_n, &(d->n));
-	// D_array = vec_to_nparr(D, &(d->m));
-	// arglist = Py_BuildValue("(OOiii)", D_array, E_array, d->EQUIL_P, d->STOCH, d->SAMPLES);
-	// PyObject_CallObject(d->ATmul, arglist);
-	// Py_DECREF(arglist);
-	// // // Scale by SCALE.
-	// // scaleArray(p->tmp_m, d->SCALE, d->m);
-	// // Scale by D.
-	// scaleDiag(d->n, E, p->tmp_n);
-	// w->meanNormColA = 0.0;
-	// for (i = 0; i < d->n; ++i) {
-	// 	// Save this result and reuse for preconditioner.
-	// 	p->M[i] = p->tmp_n[i];
-	// 	w->meanNormColA += p->tmp_n[i] / (float) d->n;
-	// }
+	/* calculate mean of col norms of A */
+	// meanNormColA = E ||A^T||_2 D1/m
+	if (d->EQUIL_STEPS == 0) {
+		resetTmp(d, p);
+		E_array = vec_to_nparr(p->tmp_n, &(d->n));
+		D_array = vec_to_nparr(D, &(d->m));
+		arglist = Py_BuildValue("(OOiii)", D_array, E_array, d->EQUIL_P, d->STOCH, d->SAMPLES);
+		PyObject_CallObject(d->ATmul, arglist);
+		Py_DECREF(arglist);
+		// // Scale by SCALE.
+		// scaleArray(p->tmp_m, d->SCALE, d->m);
+		// Scale by D.
+		scaleDiag(d->n, E, p->tmp_n);
+		w->meanNormColA = 0.0;
+		for (i = 0; i < d->n; ++i) {
+			// Save this result and reuse for preconditioner.
+			p->M[i] = p->tmp_n[i];
+			w->meanNormColA += p->tmp_n[i] / (float) d->n;
+		}
+	}
 	w->meanNormColA = 0;
 	for (i = 0; i < d->n; ++i) {
 		// Save this result and reuse for preconditioner.
