@@ -10,6 +10,17 @@
 #include "linSys.h"
 #include "util.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Function definitions...
+idxint scs(struct PROBLEM_DATA*, struct CONE*, struct SOL_VARS*, struct INFO*);
+
+#ifdef __cplusplus
+}
+#endif
+
 /* struct that containing standard problem data */
 struct PROBLEM_DATA {
 	/* problem dimensions */
@@ -81,6 +92,7 @@ idxint scs_solve(Work * w, Data * d, Cone * k, Sol * sol, Info * info);
 void scs_finish(Data * d, Work * w);
 /* scs calls scs_init, scs_solve, and scs_finish */
 idxint scs(Data * d, Cone * k, Sol * sol, Info * info);
+
 
 /* the following structs do not need to be exposed */
 struct WORK {

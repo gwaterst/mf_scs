@@ -353,7 +353,7 @@ void unNormalizeA(Data *d, Work * w) {
 
 char * getLinSysMethod(Data * d, Priv * p) {
 	char * str = scs_malloc(sizeof(char) * 128);
-	sprintf(str, "sparse-indirect, nnz in A = %li, CG tol ~ 1/iter^(%2.2f)", (long ) d->A->p[d->n], d->CG_RATE);
+	sprintf(str, "sparse-indirect, nnz in A = ???, CG tol ~ 1/iter^(%2.2f)", d->CG_RATE);
 	return str;
 }
 
@@ -532,6 +532,9 @@ void solveLinSys(Data *d, Priv * p, pfloat * b, const pfloat * s, idxint iter, i
 	/* solves (I+A'A)x = b, s warm start, solution stored in b */
 	cgIts = pcg(d, p, s, b, d->n, MAX(cgTol, CG_BEST_TOL));
 	scaleArray(&(b[d->n]), -1, d->m);
+	if (isnan(b[0])) {
+		exit(1);
+	}
 	accumByA(d, p, b, &(b[d->n]));
 
 #ifdef EXTRAVERBOSE
@@ -574,18 +577,26 @@ static idxint pcg(Data *d, Priv * pr, const pfloat * s, pfloat * b, idxint max_i
 		scaleArray(r, -1, n);
 		memcpy(b, s, n * sizeof(pfloat));
 	}
+
+	/* check to see if we need to run CG at all */
+	if (calcNorm(r, n) < MIN(tol, 1e-18)) {
+	    return 0;
+	}
+
 	applyPreConditioner(M, z, r, n, &ipzr);
 	memcpy(p, z, n * sizeof(pfloat));
 
 	for (i = 0; i < max_its; ++i) {
+		// printf("p[0] = %f, Ap[0] = %f\n", p[0], Ap[0]);
 		matVec(d, pr, p, Ap);
-
+		// printf("p[0] = %f, Ap[0] = %f\n", p[0], Ap[0]);
 		alpha = ipzr / innerProd(p, Ap, n);
+		// printf("alpha=%f, innerProd = %f\n", alpha, innerProd(p, Ap, n));
 		addScaledArray(b, p, n, alpha);
 		addScaledArray(r, Ap, n, -alpha);
 
 		if (calcNorm(r, n) < tol) {
-			/*scs_printf("tol: %.4e, resid: %.4e, iters: %i\n", tol, rsnew, i+1); */
+			// scs_printf("tol: %.4e, resid: %.4e, iters: %i\n", tol, calcNorm(r, n), i+1);
 			return i + 1;
 		}
 		ipzrOld = ipzr;
@@ -643,9 +654,10 @@ static void matVec(Data * d, Priv * p, const pfloat * x, pfloat * y) {
 	}
 	// printf("1. norm x %f\n", calcNorm(x, d->n));
 	memset(tmp, 0, d->m * sizeof(pfloat));
-	memset(y, 0, d->n * sizeof(pfloat));
+	// pfloat pre = calcNorm(tmp, d->m);
 	accumByA(d, p, x, tmp);
-	// printf("2. norm tmp %f\n", calcNorm(tmp, d->m));
+	// printf("2. norm tmp %f -> %f\n", pre, calcNorm(tmp, d->m));
+	memset(y, 0, d->n * sizeof(pfloat));
 	accumByAtrans(d, p, tmp, y);
 	// printf("3. norm y %f\n", calcNorm(y, d->n));
 	addScaledArray(y, x, d->n, d->RHO_X);
@@ -753,6 +765,7 @@ void accumByA(Data * d, Priv * p, const pfloat *x, pfloat *y) {
 
 	// y += D*tmp_m.
 	if (d->NORMALIZE) {
+		// printf("accumByA dag_output[0] = %f\n", d->dag_output[0]);
 		accScaleDiag(d->m, p->D, d->dag_output, y);
 	}
 	// AMatrix * A = d->A;
