@@ -3,10 +3,10 @@ include scs.mk
 
 OBJECTS = src/scs.o src/util.o src/cones.o src/cs.o src/linAlg.o
 AMD_SOURCE = $(wildcard $(DIRSRCEXT)/amd_*.c)
-DIRECT_OBJECTS = $(DIRSRCEXT)/ldl.o $(AMD_SOURCE:.c=.o) 
-TARGETS = $(OUT)/demo_direct $(OUT)/demo_indirect $(OUT)/demo_SOCP_indirect $(OUT)/demo_SOCP_direct
+DIRECT_OBJECTS = $(DIRSRCEXT)/ldl.o $(AMD_SOURCE:.c=.o)
+TARGETS = #$(OUT)/demo_direct $(OUT)/demo_indirect $(OUT)/demo_SOCP_indirect $(OUT)/demo_SOCP_direct
 
-.PHONY: default 
+.PHONY: default
 default: $(OUT)/libscsdir.a $(OUT)/libscsindir.a $(TARGETS)
 	@echo "**********************************************************************************"
 	@echo "Successfully compiled scs, copyright Brendan O'Donoghue 2014."
@@ -53,31 +53,32 @@ $(OUT)/libscsindir.a: $(OBJECTS) $(INDIRSRC)/private.o
 	mkdir -p $(OUT)
 	$(ARCHIVE) $(OUT)/libscsindir.a $^
 	- $(RANLIB) $(OUT)/libscsindir.a
+	# gcc -v -shared -o libscsindir.so $^ -lm
 
-$(OUT)/demo_direct: examples/c/demo.c $(OUT)/libscsdir.a examples/c/problemUtils.h
-	mkdir -p $(OUT)
-	$(CC) $(CFLAGS) -DDEMO_PATH="\"$(CURDIR)/examples/raw/demo_data\"" -o $@ $^ $(LDFLAGS) 
+# $(OUT)/demo_direct: examples/c/demo.c $(OUT)/libscsdir.a examples/c/problemUtils.h
+# 	mkdir -p $(OUT)
+# 	$(CC) $(CFLAGS) -DDEMO_PATH="\"$(CURDIR)/examples/raw/demo_data\"" -o $@ $^ $(LDFLAGS)
 
-$(OUT)/demo_indirect: examples/c/demo.c $(OUT)/libscsindir.a examples/c/problemUtils.h
-	mkdir -p $(OUT)
-	$(CC) $(CFLAGS) -DDEMO_PATH="\"$(CURDIR)/examples/raw/demo_data\"" -o $@ $^ $(LDFLAGS) 
+# $(OUT)/demo_indirect: examples/c/demo.c $(OUT)/libscsindir.a examples/c/problemUtils.h
+# 	mkdir -p $(OUT)
+# 	$(CC) $(CFLAGS) -DDEMO_PATH="\"$(CURDIR)/examples/raw/demo_data\"" -o $@ $^ $(LDFLAGS)
 
-$(OUT)/demo_SOCP_direct: examples/c/randomSOCPProb.c $(OUT)/libscsdir.a examples/c/problemUtils.h
-	mkdir -p $(OUT)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+# $(OUT)/demo_SOCP_direct: examples/c/randomSOCPProb.c $(OUT)/libscsdir.a examples/c/problemUtils.h
+# 	mkdir -p $(OUT)
+# 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-$(OUT)/demo_SOCP_indirect: examples/c/randomSOCPProb.c $(OUT)/libscsindir.a examples/c/problemUtils.h
-	mkdir -p $(OUT)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+# $(OUT)/demo_SOCP_indirect: examples/c/randomSOCPProb.c $(OUT)/libscsindir.a examples/c/problemUtils.h
+# 	mkdir -p $(OUT)
+# 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 .PHONY: clean purge
 clean:
-	@rm -rf $(TARGETS) $(OBJECTS) $(DIRECT_OBJECTS) $(DIRSRC)/private.o $(INDIRSRC)/private.o 
+	@rm -rf $(TARGETS) $(OBJECTS) $(DIRECT_OBJECTS) $(DIRSRC)/private.o $(INDIRSRC)/private.o
 	@rm -rf $(OUT)/*.dSYM
 	@rm -rf matlab/*.mex*
 	@rm -rf .idea
 	@rm -rf python/*.pyc
 	@rm -rf python/build
-purge: clean 
+purge: clean
 	@rm -rf $(OUT)
 
