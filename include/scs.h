@@ -53,6 +53,7 @@ struct PROBLEM_DATA {
 	idxint STOCH; /* Use random approximation of L2 norms? */
 	idxint SAMPLES; /* Number of samples for approximation: 200 */
 	idxint PRECOND; /* boolean, use preconditioner for CG? */
+	idxint RAND_SEED; /* boolean, use a random seed? */
 };
 
 /* contains primal-dual solution arrays */

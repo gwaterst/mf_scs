@@ -88,14 +88,14 @@ void rand_rnsAE(Data * d, pfloat *E, pfloat *output) {
 }
 
 // Randomized row norm squared for A^TD.
-// Written to output (assumed length m and zeroed out).
+// Written to output (assumed length n and zeroed out).
 void rand_rnsATD(Data * d, pfloat *D, pfloat *output) {
 	idxint i, j;
 	for (i = 0; i < d->SAMPLES; i++) {
-		gen_rand_s(d->dag_output, d->n);
-		scaleDiag(d->n, D, d->dag_output);
+		gen_rand_s(d->dag_output, d->m);
+		scaleDiag(d->m, D, d->dag_output);
 		d->ATmul(d->fao_dag);
-		for (j = 0; j < d->m; ++j) {
+		for (j = 0; j < d->n; ++j) {
 			output[j] += d->dag_input[j]*d->dag_input[j]/((pfloat) d->SAMPLES);
 		}
 	}
@@ -104,8 +104,11 @@ void rand_rnsATD(Data * d, pfloat *D, pfloat *output) {
 // Computes D and E in a matrix free way.
 void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 	// Probably shouldn't go here TODO.
-	// srand( time(NULL) );
-	srand( 1 );
+	if (d->RAND_SEED) {
+		srand( time(NULL) );
+	} else {
+		srand( 1 );
+	}
 	// import_array();
 	// PyObject * E_array;
 	// PyObject * D_array;
@@ -177,11 +180,11 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 			wrk = 0;
 			delta = boundaries[i];
 			for (j = count; j < count + delta; ++j) {
-				wrk += D[j]*D[j];
+				wrk += D[j];
 			}
 			wrk /= delta;
 			for (j = count; j < count + delta; ++j) {
-				D[j] = sqrt(wrk);
+				D[j] = wrk;
 			}
 			count += delta;
 		}
@@ -189,7 +192,7 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 		// scaleArray(D, d->SCALE, d->m);
 		// D += alpha^2*gamma.
 		for (i = 0; i < d->m; ++i) {
-			D[i] = sqrt(D[i]*D[i] + alpha*alpha*d->EQUIL_GAMMA);
+			D[i] = sqrt(D[i] + alpha*alpha*d->EQUIL_GAMMA);
 			D[i] = bound(D[i], minRowScale, maxRowScale);
 		}
 		// Set D = (D^-1)^-1.
@@ -215,8 +218,10 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 		// 	//scaleArray(&(A->x[A->p[i]]), 1.0 / e, c1);
 		// 	E[i] = e;
 		// }
-		// /* Set E = beta*(SCALE*|A^T|^2diag(D)^2 + gamma*beta^2*1)^{-1/2} */
-		/* Set E = (|A^T|diag(D))^-1 */
+
+		/* Set E = beta*(SCALE*|A^T|^2diag(D)^2 + gamma*beta^2*1)^{-1/2} */
+
+		// /* Set E = (|A^T|diag(D))^-1 */
 		// E_array = vec_to_nparr(E, &(d->n));
 		// D_array = vec_to_nparr(D, &(d->m));
 		// memset(E, 0, d->n * sizeof(pfloat));
@@ -229,8 +234,8 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 		// scaleArray(E, d->SCALE, d->n);
 		// E += beta^2*gamma.
 		for (i = 0; i < d->n; ++i) {
-			p->M[i] = E[i];
-			E[i] = sqrt(E[i]*E[i] + beta*beta*d->EQUIL_GAMMA);
+			p->M[i] = sqrt(E[i]);
+			E[i] = sqrt(E[i] + beta*beta*d->EQUIL_GAMMA);
 			E[i] = bound(E[i], minColScale, maxColScale);
 			p->M[i] /= E[i];
 		}
@@ -276,6 +281,10 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 	// PyObject_CallObject(d->Amul, arglist);
 	// Py_DECREF(arglist);
 	rand_rnsAE(d, E, p->tmp_m);
+	// Convert to L2 norm from norm squared.
+	for (i = 0; i < d->m; ++i) {
+		p->tmp_m[i] = sqrt(p->tmp_m[i]);
+	}
 	// // Scale by SCALE.
 	// scaleArray(p->tmp_m, d->SCALE, d->m);
 	// Scale by D.
