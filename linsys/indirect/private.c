@@ -41,7 +41,7 @@ static pfloat totalSolveTime;
 /* Ensure val is between MIN_SCALE and MAX_SCALE. */
 static pfloat bound(pfloat val, pfloat min_scale, pfloat max_scale) {
 	if (val < min_scale) {
-		val = 1;
+		val = min_scale;
 	} else if (val > max_scale) {
 		val = max_scale;
 	}
