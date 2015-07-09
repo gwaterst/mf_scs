@@ -86,7 +86,7 @@ nm_c = norm(data.c);
 
 work = struct();
 if (normalize)
-    [data, work] = normalize_data(data, K, scale, work); % have to do this since matlab pass by val
+    [data, work] = mat_free_normalize_data(data, K, scale, work); % have to do this since matlab pass by val
     D = work.D;
     E = work.E;
     sc_b = work.sc_b;

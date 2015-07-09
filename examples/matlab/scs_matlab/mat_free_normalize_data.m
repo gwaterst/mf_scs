@@ -63,6 +63,7 @@ for j=1:NN
 %     Et = twonorms(data.A)';
     Et = rand_rnsATD(data.A, SAMPLES);
     Et = sqrt(Et);
+    rns = Et;
     
     Et(Et < minColScale) = 1; % TODO change this?
     Et(Et > maxColScale) = maxColScale;
@@ -73,10 +74,11 @@ for j=1:NN
     E = E.*Et;
 end
 
-% TODO cheating, change this.
-nmrowA = mean(twonorms(data.A'));
-nmcolA = mean(twonorms(data.A));
-
+% nmrowA = mean(twonorms(data.A'));
+% nmcolA = mean(twonorms(data.A));
+% TODO somehow skip this?
+nmrowA = mean(sqrt(rand_rnsAE(data.A, SAMPLES)));
+nmcolA = mean(rns./Et);
 data.A = data.A*scale;
 
 data.b = data.b./D;
