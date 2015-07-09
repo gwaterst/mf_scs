@@ -3,26 +3,13 @@ from numpy import *
 from scipy import sparse, randn
 
 #############################################
-#  Uses scs to solve a random cone problem  #
+#      Generate random cone problems        #
 #############################################
 
-def main():
-    solveFeasible()
-    solveInfeasible()
-    solveUnbounded()
-
-def solveFeasible():
-    # cone:
-    K = {'f':10, 'l':15, 'q':[5, 10, 0 ,1], 's':[3, 4, 0, 0, 1], 'ep':10, 'ed':10}
-    K = validateCone(K)
-
-    density = 0.01  # A matrix density
+def genFeasible(K, n, density):
     m = getConeDims(K)
-    n = round(m / 3)
-    params = {'EPS':1e-3, 'NORMALIZE':1, 'SCALE':5, 'CG_RATE':1.5}
-
+    
     z = randn(m,)
-    z = symmetrizeSDP(z, K)  # for SD cones
     y = proj_dual_cone(z, K)  # y = s - z;
     s = y - z  # s = proj_cone(z,K)
 
@@ -31,75 +18,37 @@ def solveFeasible():
     x = randn(n)
     c = -transpose(A).dot(y)
     b = A.dot(x) + s
-
+    
     data = {'A': A, 'b': b, 'c': c}
+    return data, dot(c, x)
 
-    # indirect
-    sol_i = scs.solve(data, K, params, USE_INDIRECT=True)
-    xi = sol_i['x']
-    yi = sol_i['y']
-    print 'c\'x*  = ', dot(c, x)
-    print '% error = ', (dot(c, xi) - dot(c, x)) / dot(c, x)
-    print 'b\'y*  = ', dot(b, y)
-    print '% error = ', (dot(b, yi) - dot(b, y)) / dot(b, y)
-    # direct:
-    sol_d = scs.solve(data, K, params)
-    xd = sol_d['x']
-    yd = sol_d['y']
-    print 'c\'x*  = ', dot(c, x)
-    print '% error = ', (dot(c, xd) - dot(c, x)) / dot(c, x)
-    print 'b\'y*  = ', dot(b, y)
-    print '% error = ', (dot(b, yd) - dot(b, y)) / dot(b, y)
-
-def solveInfeasible():
-    K = {'f':10, 'l':15, 'q':[5, 10], 's':[3, 4], 'ep':10, 'ed':10}
-    K = validateCone(K)
+def genInfeasible(K, n):
     m = getConeDims(K)
-    n = round(m / 3)
-    params = {'EPS':1e-4, 'NORMALIZE':1, 'SCALE':0.5, 'CG_RATE':1.5}
-
+    
     z = randn(m,)
-    z = symmetrizeSDP(z, K)  # for SD cones
     y = proj_dual_cone(z, K)  # y = s - z;
     A = randn(m, n)
     A = A - outer(y, transpose(A).dot(y)) / linalg.norm(y) ** 2  # dense...
-
+    
     b = randn(m);
     b = -b / dot(b, y);
-
+    
     data = {'A':sparse.csc_matrix(A), 'b':b, 'c':randn(n)}
+    return data
 
-    sol_i = scs.solve(data, K, params, USE_INDIRECT=True)
-    sol_d = scs.solve(data, K, params)
-
-def solveUnbounded():
-    K = {'f':10, 'l':15, 'q':[5, 10], 's':[3, 4], 'ep':10, 'ed':10}
-    K = validateCone(K)
+def genUnbounded(K, n):
     m = getConeDims(K)
-    n = round(m / 3)
-    params = {'EPS':1e-4, 'NORMALIZE':1, 'SCALE':0.5, 'CG_RATE':1.5}
-
+    
     z = randn(m);
-    z = symmetrizeSDP(z, K);  # for SD cones
     s = proj_cone(z, K);
     A = randn(m, n);
     x = randn(n);
     A = A - outer(s + A.dot(x), x) / linalg.norm(x) ** 2;  # dense...
     c = randn(n);
     c = -c / dot(c, x);
-
+    
     data = {'A':sparse.csc_matrix(A), 'b':randn(m), 'c':c}
-
-    sol_i = scs.solve(data, K, params, USE_INDIRECT=True)
-    sol_d = scs.solve(data, K, params)
-
-
-def validateCone(K):
-    if (type(K['q']) == type(0)):
-        K['q'] = [K['q']]
-    if (type(K['s']) == type(0)):
-        K['s'] = [K['s']]
-    return K
+    return data    
 
 def pos(x):
     return (x + abs(x)) / 2
@@ -108,16 +57,20 @@ def getConeDims(K):
     l = K['f'] + K['l']
     for i in range(0, len(K['q'])):
         l = l + K['q'][i];
-
+    
     for i in range(0, len(K['s'])):
-        l = l + K['s'][i] ** 2;
+        l = l + get_sd_cone_size(K['s'][i]);
 
     l = l + K['ep'] * 3;
     l = l + K['ed'] * 3;
+    l = l + len(K['p']) * 3;
     return l
 
 def proj_dual_cone(z, c):
     return z + proj_cone(-z, c)
+
+def get_sd_cone_size(n):
+    return (n * (n + 1)) / 2
 
 def proj_cone(z, c):
     z = copy(z)
@@ -125,6 +78,7 @@ def proj_cone(z, c):
     lp_len = c['l']
     q = c['q']
     s = c['s']
+    p = c['p']
     # free/zero cone
     z[0:free_len] = 0;
     # lp cone
@@ -136,8 +90,9 @@ def proj_cone(z, c):
         idx = idx + q[i]
     # SDCs
     for i in range(0, len(s)):
-        z[idx:idx + s[i] ** 2] = proj_sdp(z[idx:idx + s[i] ** 2], s[i])
-        idx = idx + s[i] ** 2
+        sz = get_sd_cone_size(s[i])
+        z[idx:idx + sz] = proj_sdp(z[idx:idx + sz], s[i])
+        idx = idx + sz
     # Exp primal
     for i in range(0, c['ep']):
         z[idx:idx + 3] = project_exp_bisection(z[idx:idx + 3])
@@ -145,6 +100,13 @@ def proj_cone(z, c):
     # Exp dual
     for i in range(0, c['ed']):
         z[idx:idx + 3] = z[idx:idx + 3] + project_exp_bisection(-z[idx:idx + 3])
+        idx = idx + 3
+    # Power
+    for i in range(0, len(p)):
+        if (p[i] >= 0): # primal
+            z[idx:idx + 3] = proj_pow(z[idx:idx + 3], p[i])
+        else: # dual
+            z[idx:idx + 3] = z[idx:idx + 3] + proj_pow(-z[idx:idx + 3], -p[i])
         idx = idx + 3
     return z
 
@@ -154,7 +116,7 @@ def proj_soc(tt):
         return
     elif len(tt) == 1:
         return pos(tt)
-
+    
     v1 = tt[0]
     v2 = tt[1:];
     if linalg.norm(v2) <= -v1:
@@ -173,25 +135,68 @@ def proj_sdp(z, n):
         return
     elif n == 1:
         return pos(z)
-    z = reshape(z, (n, n), order='F')
-    zs = (z + transpose(z)) / 2
+    tidx = triu_indices(n)
+    tidx = (tidx[1], tidx[0])
+    didx = diag_indices(n)
+    
+    a = zeros((n, n))
+    a[tidx] = z
+    a = (a + transpose(a))
+    a[didx] = a[didx] / sqrt(2.)
 
-    w, v = linalg.eig(zs)  # cols of v are eignvectors
+    w, v = linalg.eig(a)  # cols of v are eigenvectors
     w = pos(w)
-    z = dot(v, dot(diag(w), transpose(v)))
-    return reshape(z, (n * n,))
-
-def symmetrizeSDP(z, K):
-    l = K['f'] + K['l']
-    for i in range(0, len(K['q'])):
-        l = l + K['q'][i]
-    for i in range(0, len(K['s'])):
-        n = K['s'][i]
-        V = reshape(z[l:l + n * n], (n, n), order='F')
-        V = (V + transpose(V)) / 2
-        z[l:l + n * n] = reshape(V, (n * n,))
-        l = l + n * n
+    a = dot(v, dot(diag(w), transpose(v)))
+    a[didx] = a[didx] / sqrt(2.)
+    z = a[tidx]
     return z
+
+def proj_pow(v, a):
+    CONE_MAX_ITERS = 20;
+    CONE_TOL = 1e-8;
+    
+    if (v[0]>=0 and v[1]>=0 and (v[0]**a) * (v[1]**(1-a)) >= abs(v[2])):
+        return v
+    
+    if (v[0]<=0 and v[1]<=0 and ((-v[0]/a)**a)*((-v[1]/(1-a))**(1-a)) >= abs(v[2])):
+        return zeros(3,)
+    
+    xh = v[0];
+    yh = v[1];
+    zh = v[2];
+    rh = abs(zh);
+    r = rh / 2;
+    for iter in range(0, CONE_MAX_ITERS):
+        x = calcX(r, xh, rh, a);
+        y = calcX(r, yh, rh, 1-a);
+        
+        f = calcF(x,y,r,a);
+        if abs(f) < CONE_TOL:
+            break
+        
+        dxdr = calcdxdr(x,xh,rh,r,a);
+        dydr = calcdxdr(y,yh,rh,r, (1-a));
+        fp = calcFp(x,y,dxdr,dydr,a);
+        
+        r = min(max(r - f/fp,0), rh);
+    
+    z = sign(zh) * r;
+    v[0] = x
+    v[1] = y
+    v[2] = z
+    return v
+ 
+def calcX(r, xh, rh, a):
+    return max(0.5 * (xh + sqrt(xh*xh + 4 * a * (rh - r) * r)), 1e-12)
+
+def calcdxdr(x,xh,rh,r, a):
+    return  a * (rh - 2*r) / (2 * x - xh)
+
+def calcF(x,y,r,a):
+    return (x**a) * (y**(1-a)) - r
+
+def calcFp(x,y,dxdr,dydr,a):
+    return (x**a) * (y**(1-a)) * (a * dxdr / x + (1-a) * dydr / y) - 1
 
 def project_exp_bisection(v):
     v = copy(v)
@@ -247,13 +252,12 @@ def solve_with_rho(v, rho, w):
     x[0] = v[0] - rho
     return x
 
-
 def newton_exp_onz(rho, y_hat, z_hat, w):
     t = max(max(w - z_hat, -z_hat), 1e-6)
     for iter in range(0, 100):
         f = (1 / rho ** 2) * t * (t + z_hat) - y_hat / rho + log(t / rho) + 1
         fp = (1 / rho ** 2) * (2 * t + z_hat) + 1 / t
-
+    
         t = t - f / fp
         if t <= -z_hat:
             t = -z_hat

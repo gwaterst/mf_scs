@@ -3,17 +3,17 @@ clear all
 disp('------------------------------------------------------------')
 disp('WARNING: this can take a very long time to run.')
 disp('It may also crash/run out of memory.')
-disp('Set run_sdpt3 = false if you just want to run scs.')
+disp('Set run_cvx = false if you just want to run scs.')
 disp('------------------------------------------------------------')
 
-run ../../matlab/cvx_install_scs.m
-
 save_results = false;
-run_sdpt3 = false;
-run_scs = true;
+run_cvx = false;
+cvx_use_solver = 'sdpt3';
+run_scs_direct = false;
+run_scs_indirect = true;
 
-ns = [5000, 50000, 100000];
-ms = [50, 500, 1000];
+ns = [10000, 50000, 250000];
+ms = [100,    500,    2500];
 
 density = 0.1;
 
@@ -26,23 +26,28 @@ for i = 1:length(ns)
     n = ns(i);
     m = ms(i);
     
-    mu = exp(randn(n,1));
-    D = sqrt(2*rand(n,1));
-    F = sprandn(n,m,density);
-    gamma = 10;
-        
+    mu = exp(0.01*randn(n,1))-1; % returns
+    D = rand(n,1)/10; % idiosyncratic risk
+    F = sprandn(n,m,density)/10; % factor model
+    gamma = 1;
+    B = 1;
     %%
-    if run_scs
+    if run_scs_direct
         
         tic
         cvx_begin
         cvx_solver scs
-        cvx_solver_settings('SCALE',5)
+        cvx_solver_settings('eps',1e-3,'scale',1)
         variable x(n)
         maximize (mu'*x - gamma*(sum_square(F'*x) + sum_square(D.*x)))
-        sum(x) == 1
+        sum(x) == B
         x >= 0
-        output = evalc('cvx_end')
+        if (save_results)
+            output = evalc('cvx_end')
+        else
+            output='';
+            cvx_end
+        end
         toc
         
         scs_direct.x{i} = x;
@@ -52,17 +57,23 @@ for i = 1:length(ns)
         scs_direct.output{i} = output;
         
         if (save_results); save('data/portfolio_scs_direct', 'scs_direct'); end
-        
+    end
+    if run_scs_indirect
         %%
         tic
         cvx_begin
-        cvx_solver scs
-        cvx_solver_settings('USE_INDIRECT',1,'SCALE',5)
+        cvx_solver scs_matlab
+        cvx_solver_settings('use_indirect',1,'eps',1e-3,'scale',1,'cg_rate',1.5)
         variable x(n)
         maximize (mu'*x - gamma*(sum_square(F'*x) + sum_square(D.*x)))
-        sum(x) == 1
+        sum(x) == B
         x >= 0
-        output = evalc('cvx_end')
+        if (save_results)
+            output = evalc('cvx_end')
+        else
+            output='';
+            cvx_end
+        end
         toc
         
         scs_indirect.x{i} = x;
@@ -73,19 +84,23 @@ for i = 1:length(ns)
         
         
         if (save_results); save('data/portfolio_scs_indirect', 'scs_indirect'); end
-        
     end
     %%
-    if run_sdpt3
+    if run_cvx
         try
             tic
             cvx_begin
-            cvx_solver sdpt3
+            cvx_solver(cvx_use_solver)
             variable x(n)
             maximize (mu'*x - gamma*(sum_square(F'*x) + sum_square(D.*x)))
-            sum(x) == 1
+            sum(x) == B
             x >= 0
-            output = evalc('cvx_end')
+            if (save_results)
+                output = evalc('cvx_end')
+            else
+                output='';
+                cvx_end
+            end
             toc
             
             cvx.x{i} = x;
