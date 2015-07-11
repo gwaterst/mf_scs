@@ -10,10 +10,14 @@ maxColScale = MAX_SCALE * sqrt(m);
 SAMPLES = 200;
 D = ones(m,1);
 E = ones(n,1);
+
+alpha = n/m;
+beta = 1;
 NN = 1; % NN = 1, other choices bad
 for j=1:NN
     %% D scale:
-    Dt = rand_rnsAE(data.A, SAMPLES) + data.b.^2;
+%     Dt = rand_rnsAE(data.A, SAMPLES) + data.b.^2;
+     Dt = rand_rnsAE(data.A, SAMPLES);
 %     Dt = twonorms(data.A(1:K.f,:)')';
     idx = K.f;
 %     Dt = [Dt;twonorms(data.A(idx+1:idx+K.l,:)')'];
@@ -53,7 +57,7 @@ for j=1:NN
         idx = idx + 3;
     end
     % TODO invert
-    Dt = sqrt(Dt);
+    Dt = sqrt(Dt)/alpha;
     
     Dt(Dt < minRowScale) = 1; % TODO change this?
     Dt(Dt > maxRowScale) = maxRowScale;
@@ -61,8 +65,9 @@ for j=1:NN
     
     %% E Scale
 %     Et = twonorms(data.A)';
-    Et = rand_rnsATD(data.A, SAMPLES) + data.c.^2/max(norm(data.c), MIN_SCALE);
-    Et = sqrt(Et);
+%     Et = rand_rnsATD(data.A, SAMPLES) + data.c.^2/max(norm(data.c), MIN_SCALE);
+    Et = rand_rnsATD(data.A, SAMPLES);
+    Et = sqrt(Et)/beta;
     rns = Et;
     
     Et(Et < minColScale) = 1; % TODO change this?
@@ -77,10 +82,10 @@ end
 % nmrowA = mean(twonorms(data.A'));
 % nmcolA = mean(twonorms(data.A));
 % TODO somehow skip this?
-% nmrowA = mean(sqrt(rand_rnsAE(data.A, SAMPLES)));
-% nmcolA = mean(rns./Et);
-nmrowA = 1;
-nmcolA = 1;
+nmrowA = mean(sqrt(rand_rnsAE(data.A, SAMPLES)));
+nmcolA = mean(rns./Et);
+% nmrowA = 1;
+% nmcolA = 1;
 data.A = data.A*scale;
 
 data.b = data.b./D;

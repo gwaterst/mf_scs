@@ -12,8 +12,10 @@ cvx_use_solver = 'sdpt3';
 run_scs_direct = false;
 run_scs_indirect = true;
 
-ns = [10000, 50000, 250000];
-ms = [100,    500,    2500];
+% ns = [10000, 50000, 250000];
+% ms = [100,    500,    2500];
+ns = [500, 1000, 2000, 3000, 4000, 5000];
+ms = ns/100;
 
 density = 0.1;
 

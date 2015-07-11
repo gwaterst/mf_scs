@@ -6,7 +6,7 @@ disp('It may also crash/run out of memory.')
 disp('------------------------------------------------------------')
 
 save_results = false;
-run_scs_direct = true;
+run_scs_direct = false;
 run_scs_indirect = true;
 
 sizes = [100 10000; 1000 100000; 10000 1000000];
