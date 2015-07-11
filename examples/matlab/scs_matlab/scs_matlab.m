@@ -124,7 +124,7 @@ else
         [work.L,work.d,work.P] = ldl(W,'vector');
     end
 end
-
+% 
 % TODO
 data.lbfgs_num_vecs = 32;
 data.lbfgs_done = 0;
@@ -262,10 +262,10 @@ for i=0:max_iters-1
     
         % Rescale if appropriate.
     change = 1;
-    if err_dual < eps && rescale_tau*i > rescale_l % && rescale_tau*i > rescale_u
+    if err_dual < eps && rescale_tau*i > rescale_l && i > rescale_u + 10
         change = rescale_delta;
         rescale_u = i;
-    elseif err_pri < eps && rescale_tau*i > rescale_u % && rescale_tau*i > rescale_u
+    elseif err_pri < eps && rescale_tau*i > rescale_u && i > rescale_l + 10
         change = 1/rescale_delta;
         rescale_l = i;   
     end
@@ -278,27 +278,31 @@ for i=0:max_iters-1
         v = v*change;
         h = [data.c;data.b];
         data.lbfgs_done = 0;
-        [g, itn, s_vecs, y_vecs] = solve_lin_sys(work,data,h,n,m,zeros(n,1),rho_x,-1,use_indirect,cg_rate,extra_verbose);
-        if data.lbfgs_done == 0
-            data.lbfgs_done = 1;
-            data.lbfgs_vecs = itn;
-        end
+        [g, itn, s_vecs, y_vecs] = solve_lin_sys(work,data,h,n,m,g,rho_x,-1,use_indirect,cg_rate,extra_verbose);
         g(n+1:end) = -g(n+1:end);
         gTh = g'*h;
+%         itn
+        if itn >= 3
+            if data.lbfgs_done == 0
+                data.lbfgs_done = 1;
+                data.lbfgs_vecs = itn;
+            end
 
-        % TODO make M from LBFGS preconditioner.
-        s = s_vecs(:, data.lbfgs_vecs);
-        y = y_vecs(:, data.lbfgs_vecs);
-        H = eye(n)*(s'*y)/(y'*y);
-        start = max(data.lbfgs_vecs - 32 + 1, 1);
-        for j=start:data.lbfgs_vecs-1
-            y = y_vecs(:, j);
-            s = s_vecs(:, j);
-            rho = 1/(y'*s);
-            V = eye(n) - rho*(y*s');
-            H = V'*H*V + rho*(s*s');
+            % TODO make M from LBFGS preconditioner.
+            s = s_vecs(:, data.lbfgs_vecs);
+            y = y_vecs(:, data.lbfgs_vecs);
+            H = eye(n)*(s'*y)/(y'*y);
+            start = max(data.lbfgs_vecs - 32 + 1, 1);
+            for j=start:data.lbfgs_vecs-1
+                y = y_vecs(:, j);
+                s = s_vecs(:, j);
+                rho = 1/(y'*s);
+                V = eye(n) - rho*(y*s');
+                H = V'*H*V + rho*(s*s');
+            end
+            work.M = H;
         end
-        work.M = H;
+%        work.M = diag(1 ./ diag(rho_x*speye(n) + data.A'*data.A)); % pre-conditioner
     end
     
 end
