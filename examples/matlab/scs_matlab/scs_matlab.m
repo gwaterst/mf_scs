@@ -125,33 +125,33 @@ else
     end
 end
 
-% % TODO
-% data.lbfgs_num_vecs = 32;
-% data.lbfgs_done = 0;
-% data.s_vecs = zeros(n, data.lbfgs_num_vecs);
-% data.y_vecs = zeros(n, data.lbfgs_num_vecs);
-% h = [data.c;data.b];
-% [g, itn, s_vecs, y_vecs] = solve_lin_sys(work,data,h,n,m,zeros(n,1),rho_x,-1,use_indirect,cg_rate,extra_verbose);
-% if data.lbfgs_done == 0
-%     data.lbfgs_done = 1;
-%     data.lbfgs_vecs = itn
-% end
-% g(n+1:end) = -g(n+1:end);
-% gTh = g'*h;
-% 
-% % TODO make M from LBFGS preconditioner.
-% s = s_vecs(:, data.lbfgs_vecs);
-% y = y_vecs(:, data.lbfgs_vecs);
-% H = eye(n)*(s'*y)/(y'*y);
-% start = max(data.lbfgs_vecs - 32 + 1, 1);
-% for i=start:data.lbfgs_vecs-1
-%     y = y_vecs(:, i);
-%     s = s_vecs(:, i);
-%     rho = 1/(y'*s);
-%     V = eye(n) - rho*(y*s');
-%     H = V'*H*V + rho*(s*s');
-% end
-% work.M = H;
+% TODO
+data.lbfgs_num_vecs = 32;
+data.lbfgs_done = 0;
+data.s_vecs = zeros(n, data.lbfgs_num_vecs);
+data.y_vecs = zeros(n, data.lbfgs_num_vecs);
+h = [data.c;data.b];
+[g, itn, s_vecs, y_vecs] = solve_lin_sys(work,data,h,n,m,zeros(n,1),rho_x,-1,use_indirect,cg_rate,extra_verbose);
+if data.lbfgs_done == 0
+    data.lbfgs_done = 1;
+    data.lbfgs_vecs = itn
+end
+g(n+1:end) = -g(n+1:end);
+gTh = g'*h;
+
+% TODO make M from LBFGS preconditioner.
+s = s_vecs(:, data.lbfgs_vecs);
+y = y_vecs(:, data.lbfgs_vecs);
+H = eye(n)*(s'*y)/(y'*y);
+start = max(data.lbfgs_vecs - 32 + 1, 1);
+for i=start:data.lbfgs_vecs-1
+    y = y_vecs(:, i);
+    s = s_vecs(:, i);
+    rho = 1/(y'*s);
+    V = eye(n) - rho*(y*s');
+    H = V'*H*V + rho*(s*s');
+end
+work.M = H;
 % work.M = diag(1 ./ diag(rho_x*speye(n) + data.A'*data.A)); % pre-conditioner
 % u = [x;z;tau], v = [y;s;kappa]
 fprintf('Iter:\t      pres      dres       gap      pobj      dobj   unb_res   inf_res   kap/tau  time (s)\n');
@@ -174,28 +174,18 @@ u_bar = u;
 ut_bar = u;
 v_bar = v;
 
-Q = sparse([zeros(n,n) data.A' data.c;
-     -data.A zeros(m,m) data.b;
-     -data.c' -data.b' 0]);
-
 tic
 for i=0:max_iters-1
     % solve linear system
-%     u_prev = u;
-%     ut = u+v;
-%     ut(1:n) = rho_x*ut(1:n);
-%     ut(1:n+m) = ut(1:n+m) - ut(end)*h;
-%     ut(1:n+m) = ut(1:n+m) - h*((g'*ut(1:n+m))/(gTh+1));
-%     warm_start = u(1:n+m);
-%     ut(n+1:end-1) = -ut(n+1:end-1);
-%     [ut(1:n+m), itn] = solve_lin_sys(work, data, ut(1:n+m), n, m, warm_start, rho_x, i, use_indirect, cg_rate, extra_verbose);
-%     ut(end) = (ut(end) + h'*ut(1:n+m));
     u_prev = u;
-    mat = Q + speye(n+m+1);
-    BEST_TOL = 1e-9;
-    tol = 0.1 * (i+1)^(-cg_rate);
-%     tol = max( BEST_TOL, norm(u+v) * tol);
-    [ut,flag,relres,itn] = lsqr(mat,u+v,tol,200,eye(n+m+1),eye(n+m+1),u_prev);
+    ut = u+v;
+    ut(1:n) = rho_x*ut(1:n);
+    ut(1:n+m) = ut(1:n+m) - ut(end)*h;
+    ut(1:n+m) = ut(1:n+m) - h*((g'*ut(1:n+m))/(gTh+1));
+    warm_start = u(1:n+m);
+    ut(n+1:end-1) = -ut(n+1:end-1);
+    [ut(1:n+m), itn] = solve_lin_sys(work, data, ut(1:n+m), n, m, warm_start, rho_x, i, use_indirect, cg_rate, extra_verbose);
+    ut(end) = (ut(end) + h'*ut(1:n+m));
     
     %% K proj:
     rel_ut = alpha*ut+(1-alpha)*u;
@@ -271,45 +261,45 @@ for i=0:max_iters-1
     end
     
         % Rescale if appropriate.
-%     change = 1;
-%     if err_dual < eps && rescale_tau*i > rescale_l % && rescale_tau*i > rescale_u
-%         change = rescale_delta;
-%         rescale_u = i;
-%     elseif err_pri < eps && rescale_tau*i > rescale_u % && rescale_tau*i > rescale_u
-%         change = 1/rescale_delta;
-%         rescale_l = i;   
-%     end
-%     % Rescale everything.
-%     if change ~= 1
-%         scale = scale*change;
-%         data.A = data.A*change;
-%         data.c = data.c*change;
-%         data.b = data.b*change;
-%         v = v*change;
-%         h = [data.c;data.b];
-%         data.lbfgs_done = 0;
-%         [g, itn, s_vecs, y_vecs] = solve_lin_sys(work,data,h,n,m,zeros(n,1),rho_x,-1,use_indirect,cg_rate,extra_verbose);
-%         if data.lbfgs_done == 0
-%             data.lbfgs_done = 1;
-%             data.lbfgs_vecs = itn;
-%         end
-%         g(n+1:end) = -g(n+1:end);
-%         gTh = g'*h;
-% 
-%         % TODO make M from LBFGS preconditioner.
-%         s = s_vecs(:, data.lbfgs_vecs);
-%         y = y_vecs(:, data.lbfgs_vecs);
-%         H = eye(n)*(s'*y)/(y'*y);
-%         start = max(data.lbfgs_vecs - 32 + 1, 1);
-%         for j=start:data.lbfgs_vecs-1
-%             y = y_vecs(:, j);
-%             s = s_vecs(:, j);
-%             rho = 1/(y'*s);
-%             V = eye(n) - rho*(y*s');
-%             H = V'*H*V + rho*(s*s');
-%         end
-%         work.M = H;
-%     end
+    change = 1;
+    if err_dual < eps && rescale_tau*i > rescale_l % && rescale_tau*i > rescale_u
+        change = rescale_delta;
+        rescale_u = i;
+    elseif err_pri < eps && rescale_tau*i > rescale_u % && rescale_tau*i > rescale_u
+        change = 1/rescale_delta;
+        rescale_l = i;   
+    end
+    % Rescale everything.
+    if change ~= 1
+        scale = scale*change;
+        data.A = data.A*change;
+        data.c = data.c*change;
+        data.b = data.b*change;
+        v = v*change;
+        h = [data.c;data.b];
+        data.lbfgs_done = 0;
+        [g, itn, s_vecs, y_vecs] = solve_lin_sys(work,data,h,n,m,zeros(n,1),rho_x,-1,use_indirect,cg_rate,extra_verbose);
+        if data.lbfgs_done == 0
+            data.lbfgs_done = 1;
+            data.lbfgs_vecs = itn;
+        end
+        g(n+1:end) = -g(n+1:end);
+        gTh = g'*h;
+
+        % TODO make M from LBFGS preconditioner.
+        s = s_vecs(:, data.lbfgs_vecs);
+        y = y_vecs(:, data.lbfgs_vecs);
+        H = eye(n)*(s'*y)/(y'*y);
+        start = max(data.lbfgs_vecs - 32 + 1, 1);
+        for j=start:data.lbfgs_vecs-1
+            y = y_vecs(:, j);
+            s = s_vecs(:, j);
+            rho = 1/(y'*s);
+            V = eye(n) - rho*(y*s');
+            H = V'*H*V + rho*(s*s');
+        end
+        work.M = H;
+    end
     
 end
 if (i+1 == max_iters); i=i+1; end
