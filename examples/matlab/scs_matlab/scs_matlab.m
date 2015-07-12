@@ -53,7 +53,7 @@ extra_verbose = false;  % CG prints summary
 rescale_l = 0;
 rescale_u = 0;
 rescale_tau = 0.8;
-deltaMin = 1.5; % 1.05;
+deltaMin = 1.25; % 1.05;
 rescale_delta = deltaMin;
 rescale_gamma = 1.01;
 
@@ -128,24 +128,19 @@ end
 % TODO
 data.lbfgs_num_vecs = 32;
 data.lbfgs_done = 0;
-data.s_vecs = zeros(n, data.lbfgs_num_vecs);
-data.y_vecs = zeros(n, data.lbfgs_num_vecs);
 h = [data.c;data.b];
 [g, itn, s_vecs, y_vecs] = solve_lin_sys(work,data,h,n,m,zeros(n,1),rho_x,-1,use_indirect,cg_rate,extra_verbose);
-assert(itn <= data.lbfgs_num_vecs);
-if data.lbfgs_done == 0
-    data.lbfgs_done = 1;
-    data.lbfgs_vecs = itn;
-end
+[~,num_vecs] = size(s_vecs);
+assert(num_vecs <= data.lbfgs_num_vecs);
+data.lbfgs_done = 1;
 g(n+1:end) = -g(n+1:end);
 gTh = g'*h;
 
 % TODO make M from LBFGS preconditioner.
-s = s_vecs(:, data.lbfgs_vecs);
-y = y_vecs(:, data.lbfgs_vecs);
+s = s_vecs(:, num_vecs);
+y = y_vecs(:, num_vecs);
 H = eye(n)*(s'*y)/(y'*y);
-start = max(data.lbfgs_vecs - 32 + 1, 1);
-for i=start:data.lbfgs_vecs-1
+for i=1:num_vecs-1
     y = y_vecs(:, i);
     s = s_vecs(:, i);
     rho = 1/(y'*s);
@@ -263,10 +258,12 @@ for i=0:max_iters-1
     
         % Rescale if appropriate.
     change = 1;
-    if err_dual < eps && rescale_tau*i > rescale_l && i > rescale_u + 10
+    if err_dual < eps && rescale_tau*i > rescale_l && ...
+        i > rescale_u + 10 && err_pri/err_dual > 100
         change = rescale_delta;
         rescale_u = i;
-    elseif err_pri < eps && rescale_tau*i > rescale_u && i > rescale_l + 10
+    elseif err_pri < eps && rescale_tau*i > rescale_u && ....
+        i > rescale_l + 10 && err_dual/err_pri > 100
         change = 1/rescale_delta;
         rescale_l = i;   
     end
@@ -283,11 +280,10 @@ for i=0:max_iters-1
         % rho_x*s_k
         % y_k = change*y_k + (change-1)*rho_x*s_k
         y_vecs = change*y_vecs + (change - 1)*rho_x*s_vecs;
-        s = s_vecs(:, data.lbfgs_vecs);
-        y = y_vecs(:, data.lbfgs_vecs);
+        s = s_vecs(:, num_vecs);
+        y = y_vecs(:, num_vecs);
         H = eye(n)*(s'*y)/(y'*y);
-        start = max(data.lbfgs_vecs - 32 + 1, 1);
-        for k=start:data.lbfgs_vecs-1
+        for k=1:num_vecs-1
             y = y_vecs(:, k);
             s = s_vecs(:, k);
             rho = 1/(y'*s);
