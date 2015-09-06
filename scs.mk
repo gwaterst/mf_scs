@@ -9,7 +9,7 @@ else
 LDFLAGS = -lm
 endif
 
-CFLAGS = -g -Wall -pedantic -O3 -funroll-loops -Wstrict-prototypes -Iinclude
+CFLAGS = -g -fPIC -Wall -pedantic -O3 -funroll-loops -Wstrict-prototypes -Iinclude
 
 LINSYS = linsys
 DIRSRC = $(LINSYS)/direct
