@@ -41,7 +41,6 @@ static pfloat totalSolveTime;
 /* Ensure val is between MIN_SCALE and MAX_SCALE. */
 static pfloat bound(pfloat val, pfloat min_scale, pfloat max_scale) {
 	if (val < min_scale) {
-		// val = 1;
 		val = min_scale;
 	} else if (val > max_scale) {
 		val = max_scale;
@@ -152,8 +151,7 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 	printf("EQUIL_GAMMA = %f\n", d->EQUIL_GAMMA);
 	idxint steps;
 	// alpha = n/m, beta = 1.
-	// pfloat alpha = ((pfloat) d->n)/((pfloat) d->m);
-	pfloat alpha = 1.0;
+	pfloat alpha = ((pfloat) d->n)/((pfloat) d->m);
 	printf("alpha=%f\n", alpha);
 	pfloat beta = 1.0;
 	for (steps = 0; steps < d->EQUIL_STEPS; ++steps) {
@@ -173,11 +171,6 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 		// TODO do randomized equil.
 		memset(D, 0, d->m * sizeof(pfloat));
 		rand_rnsAE(d, E, D);
-
-		// Equilibrate [A b; c^T 0]
-		for (i = 0; i < d->m; ++i) {
-			D[i] += d->b[i]*d->b[i];
-		}
 
 		/* mean of norms of rows across each cone  */
 		// TODO this is wrong, should be sqrt of sum of all
@@ -237,14 +230,6 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 		// Py_DECREF(arglist);
 		memset(E, 0, d->n * sizeof(pfloat));
 		rand_rnsATD(d, D, E);
-		// Equilibrate [A b; c^T 0]
-		pfloat scale_c = calcNorm(d->c, d->n);
-		if (scale_c < MIN_SCALE)
-			scale_c = MIN_SCALE;
-		for (i = 0; i < d->n; ++i) {
-			E[i] += d->c[i]*d->c[i]/scale_c;
-		}
-
 		// // E *= SCALE.
 		// scaleArray(E, d->SCALE, d->n);
 		// E += beta^2*gamma.
@@ -259,7 +244,6 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 		scaleArray(E, (pfloat) d->m, beta);
 	}
 	scs_free(boundaries);
-
 
 	// // TODO touches A.
 	// nms = scs_calloc(d->m, sizeof(pfloat));
@@ -289,59 +273,57 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 	// TODO trying with row norm squared = n
 	// and col norm squared = m.
 
-	// // meanNormRowA = D ||A||_2 E1/m
-	// resetTmp(d, p);
-	// // E_array = vec_to_nparr(E, &(d->n));
-	// // D_array = vec_to_nparr(p->tmp_m, &(d->m));
-	// // arglist = Py_BuildValue("(OOiii)", E_array, D_array, d->EQUIL_P, d->STOCH, d->SAMPLES);
-	// // PyObject_CallObject(d->Amul, arglist);
-	// // Py_DECREF(arglist);
-	// rand_rnsAE(d, E, p->tmp_m);
-	// // Convert to L2 norm from norm squared.
-	// for (i = 0; i < d->m; ++i) {
-	// 	p->tmp_m[i] = sqrt(p->tmp_m[i]);
-	// }
-	// // // Scale by SCALE.
-	// // scaleArray(p->tmp_m, d->SCALE, d->m);
-	// // Scale by D.
-	// scaleDiag(d->m, D, p->tmp_m);
-	// w->meanNormRowA = 0.0;
-	// for (i = 0; i < d->m; ++i) {
-	//    	w->meanNormRowA += p->tmp_m[i] / (pfloat) d->m;
-	// }
-	// // w->meanNormRowA = alpha;
-	// printf("w->meanNormRowA=%f\n", w->meanNormRowA);
+	// meanNormRowA = D ||A||_2 E1/m
+	resetTmp(d, p);
+	// E_array = vec_to_nparr(E, &(d->n));
+	// D_array = vec_to_nparr(p->tmp_m, &(d->m));
+	// arglist = Py_BuildValue("(OOiii)", E_array, D_array, d->EQUIL_P, d->STOCH, d->SAMPLES);
+	// PyObject_CallObject(d->Amul, arglist);
+	// Py_DECREF(arglist);
+	rand_rnsAE(d, E, p->tmp_m);
+	// Convert to L2 norm from norm squared.
+	for (i = 0; i < d->m; ++i) {
+		p->tmp_m[i] = sqrt(p->tmp_m[i]);
+	}
+	// // Scale by SCALE.
+	// scaleArray(p->tmp_m, d->SCALE, d->m);
+	// Scale by D.
+	scaleDiag(d->m, D, p->tmp_m);
+	w->meanNormRowA = 0.0;
+	for (i = 0; i < d->m; ++i) {
+	   	w->meanNormRowA += p->tmp_m[i] / (pfloat) d->m;
+	}
+	// w->meanNormRowA = alpha;
+	printf("w->meanNormRowA=%f\n", w->meanNormRowA);
 
-	// /* calculate mean of col norms of A */
-	// // meanNormColA = E ||A^T||_2 D1/m
-	// if (d->EQUIL_STEPS == 0) {
-	// 	// resetTmp(d, p);
-	// 	// E_array = vec_to_nparr(p->tmp_n, &(d->n));
-	// 	// D_array = vec_to_nparr(D, &(d->m));
-	// 	// arglist = Py_BuildValue("(OOiii)", D_array, E_array, d->EQUIL_P, d->STOCH, d->SAMPLES);
-	// 	// PyObject_CallObject(d->ATmul, arglist);
-	// 	// Py_DECREF(arglist);
-	// 	rand_rnsATD(d, D, p->tmp_n);
-	// 	// // Scale by SCALE.
-	// 	// scaleArray(p->tmp_m, d->SCALE, d->m);
-	// 	// Scale by D.
-	// 	scaleDiag(d->n, E, p->tmp_n);
-	// 	w->meanNormColA = 0.0;
-	// 	for (i = 0; i < d->n; ++i) {
-	// 		// Save this result and reuse for preconditioner.
-	// 		p->M[i] = p->tmp_n[i];
-	// 		w->meanNormColA += p->tmp_n[i] / (float) d->n;
-	// 	}
-	// }
-	// w->meanNormColA = 0;
-	// for (i = 0; i < d->n; ++i) {
-	// 	// Save this result and reuse for preconditioner.
-	// 	// p->M[i] = beta;
-	// 	w->meanNormColA += p->M[i]/(pfloat) d->n;
-	// }
+	/* calculate mean of col norms of A */
+	// meanNormColA = E ||A^T||_2 D1/m
+	if (d->EQUIL_STEPS == 0) {
+		// resetTmp(d, p);
+		// E_array = vec_to_nparr(p->tmp_n, &(d->n));
+		// D_array = vec_to_nparr(D, &(d->m));
+		// arglist = Py_BuildValue("(OOiii)", D_array, E_array, d->EQUIL_P, d->STOCH, d->SAMPLES);
+		// PyObject_CallObject(d->ATmul, arglist);
+		// Py_DECREF(arglist);
+		rand_rnsATD(d, D, p->tmp_n);
+		// // Scale by SCALE.
+		// scaleArray(p->tmp_m, d->SCALE, d->m);
+		// Scale by D.
+		scaleDiag(d->n, E, p->tmp_n);
+		w->meanNormColA = 0.0;
+		for (i = 0; i < d->n; ++i) {
+			// Save this result and reuse for preconditioner.
+			p->M[i] = p->tmp_n[i];
+			w->meanNormColA += p->tmp_n[i] / (float) d->n;
+		}
+	}
+	w->meanNormColA = 0;
+	for (i = 0; i < d->n; ++i) {
+		// Save this result and reuse for preconditioner.
+		// p->M[i] = beta;
+		w->meanNormColA += p->M[i]/(pfloat) d->n;
+	}
 	// w->meanNormColA = beta;
-	w->meanNormColA = 1;
-	w->meanNormRowA = 1;
 	printf("w->meanNormColA=%f\n", w->meanNormColA);
 
 	// Set D = D^-1 and E = E^-1 because assumed inverted elsewhere.
