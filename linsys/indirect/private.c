@@ -146,14 +146,16 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 	for (i = 0; i < d->n; i++) {
 		E[i] = 1.0;
 	}
-	printf("STOCH = %i\n", d->STOCH);
-	printf("EQUIL_P = %i\n", d->EQUIL_P);
-	printf("EQUIL_GAMMA = %f\n", d->EQUIL_GAMMA);
 	idxint steps;
 	// alpha = n/m, beta = 1.
 	pfloat alpha = ((pfloat) d->n)/((pfloat) d->m);
-	printf("alpha=%f\n", alpha);
 	pfloat beta = 1.0;
+	if (d->VERBOSE) {
+		printf("STOCH = %i\n", d->STOCH);
+		printf("EQUIL_P = %i\n", d->EQUIL_P);
+		printf("EQUIL_GAMMA = %f\n", d->EQUIL_GAMMA);
+		printf("alpha=%f\n", alpha);
+	}
 	for (steps = 0; steps < d->EQUIL_STEPS; ++steps) {
 		// One iteration of algorithm.
 		// resetTmp(d, p);
@@ -294,7 +296,8 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 	   	w->meanNormRowA += p->tmp_m[i] / (pfloat) d->m;
 	}
 	// w->meanNormRowA = alpha;
-	printf("w->meanNormRowA=%f\n", w->meanNormRowA);
+	if (d->VERBOSE)
+		printf("w->meanNormRowA=%f\n", w->meanNormRowA);
 
 	/* calculate mean of col norms of A */
 	// meanNormColA = E ||A^T||_2 D1/m
@@ -324,25 +327,30 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 		w->meanNormColA += p->M[i]/(pfloat) d->n;
 	}
 	// w->meanNormColA = beta;
-	printf("w->meanNormColA=%f\n", w->meanNormColA);
+	if (d->VERBOSE)
+		printf("w->meanNormColA=%f\n", w->meanNormColA);
 
 	// Set D = D^-1 and E = E^-1 because assumed inverted elsewhere.
 	invDiag(d->m, D, D);
 	invDiag(d->n, E, E);
 
 	// Debugging info.
-	printf("D[0]=%f\n", D[0]);
-	printf("E[0]=%f\n", E[0]);
+	if (d->VERBOSE) {
+		printf("D[0]=%f\n", D[0]);
+		printf("E[0]=%f\n", E[0]);
+	}
 	pfloat avg = 0;
 	for (i = 0; i < d->m; ++i) {
 		avg += D[i] / d->m;
 	}
-	printf("D average=%f\n", avg);
+	if (d->VERBOSE)
+		printf("D average=%f\n", avg);
 	avg = 0;
 	for (i = 0; i < d->n; ++i) {
 		avg += E[i] / d->n;
 	}
-	printf("E average=%f\n", avg);
+	if (d->VERBOSE)
+		printf("E average=%f\n", avg);
 
 	w->D = D;
 	w->E = E;
