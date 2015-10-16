@@ -18,10 +18,10 @@ void normalizeBC(Data * d, Work * w) {
 	}
 	w->sc_b = w->meanNormColA / MAX(calcNorm(d->b, d->m), MIN_SCALE);
 	/* scale c */
-	w->sc_c = w->meanNormRowA / MAX(calcNorm(d->c, d->n), MIN_SCALE);
 	for (i = 0; i < d->n; ++i) {
 		d->c[i] /= E[i];
 	}
+	w->sc_c = w->meanNormRowA / MAX(calcNorm(d->c, d->n), MIN_SCALE);
 	scaleArray(d->b, w->sc_b * d->SCALE, d->m);
 	scaleArray(d->c, w->sc_c * d->SCALE, d->n);
 }
