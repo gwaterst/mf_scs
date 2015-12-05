@@ -184,7 +184,7 @@ void normalizeA(Data * d, Priv * p, Work * w, Cone * k) {
 			for (j = count; j < count + delta; ++j) {
 				wrk += D[j];
 			}
-			wrk /= delta;
+			wrk /= (delta*delta);
 			for (j = count; j < count + delta; ++j) {
 				D[j] = wrk;
 			}
