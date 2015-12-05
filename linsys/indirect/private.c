@@ -427,10 +427,8 @@ void getPreconditioner(Data *d, Priv *p) {
 	// Py_DECREF(arglist);
 
 	// Debug.
-	if (d->VERBOSE) {
-		printf("M[0]=%f\n", M[0]);
-		printf("M average = %f\n", avg);
-	}
+	printf("M[0]=%f\n", M[0]);
+	printf("M average = %f\n", avg);
 
 #ifdef EXTRAVERBOSE
 	scs_printf("finished getting pre-conditioner\n");
