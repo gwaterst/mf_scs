@@ -1,6 +1,6 @@
 This is a special matrix-free version of SCS. See [these papers](http://stanford.edu/~boyd/papers/abs_ops.html) for further details on matrix-free solvers.
 
-### Using scs in Python
+### Using matrix-free scs in Python
 
 To create the Python interface, the following lines of code should work:
 ```
