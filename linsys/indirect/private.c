@@ -588,7 +588,7 @@ static void resetTmp(Data * d, Priv * p) {
 /*y = (RHO_X * I + A'A)x */
 static void matVec(Data * d, Priv * p, const pfloat * x, pfloat * y) {
 	pfloat * tmp = p->tmp_matvec;
-	if isnan(x[0]) {
+	if (isnan(x[0])) {
 		return;
 	}
 	// printf("1. norm x %f\n", calcNorm(x, d->n));
